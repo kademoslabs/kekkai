@@ -1,5 +1,13 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/kademoslabs/assets/main/logos/kekkai-slim.png" alt="Kekkai CLI Logo" width="250"/>
+</p>
+<p align="center"><i>Security that moves at developer speed. One command. Clean AppSec reports.</i></p>
+<p align="center">
+  <img src="https://img.shields.io/badge/license-MIT-blue.svg"/>
+  <img src="https://img.shields.io/badge/status-active-brightgreen"/>
+</p>
+
 # Kekkai
-**One command. Clean AppSec reports.**
 
 Kekkai orchestrates common open-source scanners locally, deduplicates noise, and produces a single actionable report for your repo.
 
