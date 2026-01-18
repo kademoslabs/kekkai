@@ -1,3 +1,10 @@
+Metadata-Version: 2.4
+Name: kekkai
+Version: 0.0.0
+Summary: Kekkai/Regulon monorepo (local-first AppSec orchestration + compliance checker)
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+
 <p align="center">
   <img src="https://raw.githubusercontent.com/kademoslabs/assets/main/logos/kekkai-slim.png" alt="Kekkai CLI Logo" width="250"/>
 </p>
