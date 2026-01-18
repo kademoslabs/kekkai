@@ -1,9 +1,0 @@
-README.md
-pyproject.toml
-src/kekkai.egg-info/PKG-INFO
-src/kekkai.egg-info/SOURCES.txt
-src/kekkai.egg-info/dependency_links.txt
-src/kekkai.egg-info/top_level.txt
-src/kekkai_core/__init__.py
-src/kekkai_core/redaction.py
-tests/test_redaction.py
