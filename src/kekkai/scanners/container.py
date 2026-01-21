@@ -42,7 +42,24 @@ def run_container(
     output_path: Path,
     command: list[str],
     timeout_seconds: int = DEFAULT_TIMEOUT,
+    workdir: str | None = None,
+    output_mount: str | None = None,
+    skip_repo_mount: bool = False,
+    user: str | None = "1000:1000",
 ) -> ContainerResult:
+    """Run a command in a Docker container with security controls.
+
+    Args:
+        config: Container configuration (image, security settings)
+        repo_path: Path to repository to mount (read-only)
+        output_path: Path for output files (read-write)
+        command: Command and arguments to run
+        timeout_seconds: Timeout for container execution
+        workdir: Override working directory (default: /repo)
+        output_mount: Override output mount point (default: /output)
+        skip_repo_mount: Skip mounting repo (for DAST scanners)
+        user: User to run as (default: 1000:1000, None for container default)
+    """
     docker = docker_command()
     image_ref = f"{config.image}@{config.image_digest}" if config.image_digest else config.image
 
@@ -50,9 +67,10 @@ def run_container(
         docker,
         "run",
         "--rm",
-        "--user",
-        "1000:1000",
     ]
+
+    if user:
+        args.extend(["--user", user])
 
     if config.read_only:
         args.extend(["--read-only", "--tmpfs", "/tmp:rw,noexec,nosuid,size=512m"])  # nosec B108  # noqa: S108
@@ -69,17 +87,18 @@ def run_container(
     if config.cpu_limit:
         args.extend(["--cpus", config.cpu_limit])
 
-    args.extend(
-        [
-            "-v",
-            f"{repo_path.resolve()}:/repo:ro",
-            "-v",
-            f"{output_path.resolve()}:/output:rw",
-            "-w",
-            "/repo",
-            image_ref,
-        ]
-    )
+    # Mount repository (optional for DAST scanners)
+    if not skip_repo_mount:
+        args.extend(["-v", f"{repo_path.resolve()}:/repo:ro"])
+
+    # Mount output directory
+    mount_point = output_mount or "/output"
+    args.extend(["-v", f"{output_path.resolve()}:{mount_point}:rw"])
+
+    # Set working directory
+    args.extend(["-w", workdir or "/repo"])
+
+    args.append(image_ref)
     args.extend(command)
 
     start = time.monotonic()

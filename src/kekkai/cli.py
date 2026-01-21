@@ -14,7 +14,16 @@ from .config import ConfigOverrides, DojoSettings, load_config
 from .dojo_import import DojoConfig, import_results_to_dojo
 from .paths import app_base_dir, config_path, ensure_dir, is_within_base, safe_join
 from .runner import StepResult, run_step
-from .scanners import SCANNER_REGISTRY, ScanContext, ScanResult, dedupe_findings
+from .scanners import (
+    OPTIONAL_SCANNERS,
+    SCANNER_REGISTRY,
+    ScanContext,
+    Scanner,
+    ScanResult,
+    create_falco_scanner,
+    create_zap_scanner,
+    dedupe_findings,
+)
 
 RUN_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_.-]{3,64}$")
 
@@ -48,6 +57,25 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     scan_parser.add_argument("--dojo-url", type=str, help="DefectDojo base URL")
     scan_parser.add_argument("--dojo-api-key", type=str, help="DefectDojo API key")
+
+    # ZAP DAST scanner options
+    scan_parser.add_argument(
+        "--target-url",
+        type=str,
+        help="Target URL for ZAP DAST scanning (required if zap in scanners)",
+    )
+    scan_parser.add_argument(
+        "--allow-private-ips",
+        action="store_true",
+        help="Allow ZAP to scan private/internal IPs (DANGEROUS)",
+    )
+
+    # Falco runtime security options
+    scan_parser.add_argument(
+        "--enable-falco",
+        action="store_true",
+        help="Enable Falco runtime security (Linux-only, experimental)",
+    )
 
     dojo_parser = subparsers.add_parser("dojo", help="manage local DefectDojo stack")
     dojo_subparsers = dojo_parser.add_subparsers(dest="dojo_command")
@@ -85,6 +113,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             parsed.import_dojo,
             parsed.dojo_url,
             parsed.dojo_api_key,
+            parsed.target_url,
+            parsed.allow_private_ips,
+            parsed.enable_falco,
         )
     if parsed.command == "dojo":
         return _command_dojo(parsed)
@@ -130,6 +161,9 @@ def _command_scan(
     import_dojo: bool,
     dojo_url_override: str | None,
     dojo_api_key_override: str | None,
+    target_url_override: str | None = None,
+    allow_private_ips: bool = False,
+    enable_falco: bool = False,
 ) -> int:
     cfg_path = _resolve_config_path(config_override)
     if not cfg_path.exists():
@@ -185,18 +219,43 @@ def _command_scan(
             timeout_seconds=cfg.timeout_seconds,
         )
         scanners_map = {}
+
+        # Resolve ZAP target URL
+        zap_target_url = target_url_override or os.environ.get("KEKKAI_ZAP_TARGET_URL")
+        if cfg.zap and cfg.zap.target_url:
+            zap_target_url = zap_target_url or cfg.zap.target_url
+
+        # Resolve ZAP allow_private_ips
+        zap_allow_private = allow_private_ips
+        if cfg.zap and cfg.zap.allow_private_ips:
+            zap_allow_private = True
+
+        # Resolve Falco enabled
+        falco_enabled = enable_falco or os.environ.get("KEKKAI_ENABLE_FALCO") == "1"
+        if cfg.falco and cfg.falco.enabled:
+            falco_enabled = True
+
         for name in scanner_names:
-            scanner_cls = SCANNER_REGISTRY.get(name)
-            if not scanner_cls:
+            scanner = _create_scanner(
+                name=name,
+                zap_target_url=zap_target_url,
+                zap_allow_private_ips=zap_allow_private,
+                zap_allowed_domains=cfg.zap.allowed_domains if cfg.zap else [],
+                falco_enabled=falco_enabled,
+            )
+            if scanner is None:
                 print(f"Unknown scanner: {name}")
                 continue
-            scanner = scanner_cls()
+
             scanners_map[name] = scanner
             print(f"Running {name}...")
             scan_result = scanner.run(ctx)
             scan_results.append(scan_result)
             if not scan_result.success:
                 print(f"  {name} failed: {scan_result.error}")
+                # For ZAP/Falco: failures should not be hidden
+                if name in ("zap", "falco"):
+                    status_ok = False
             else:
                 deduped = dedupe_findings(scan_result.findings)
                 print(f"  {name}: {len(deduped)} findings")
@@ -247,6 +306,44 @@ def _resolve_scanners(override: str | None, config_scanners: list[str] | None) -
     if config_scanners:
         return config_scanners
     return []
+
+
+def _create_scanner(
+    name: str,
+    zap_target_url: str | None = None,
+    zap_allow_private_ips: bool = False,
+    zap_allowed_domains: list[str] | None = None,
+    falco_enabled: bool = False,
+) -> Scanner | None:
+    """Create a scanner instance by name.
+
+    Handles both core scanners (SAST/SCA) and optional scanners (DAST/runtime).
+    """
+    # Check core scanners first
+    scanner_cls = SCANNER_REGISTRY.get(name)
+    if scanner_cls:
+        scanner: Scanner = scanner_cls()
+        return scanner
+
+    # Handle optional scanners with special configuration
+    if name == "zap":
+        zap: Scanner = create_zap_scanner(
+            target_url=zap_target_url,
+            allow_private_ips=zap_allow_private_ips,
+            allowed_domains=zap_allowed_domains or [],
+        )
+        return zap
+
+    if name == "falco":
+        falco: Scanner = create_falco_scanner(enabled=falco_enabled)
+        return falco
+
+    # Check optional scanners registry (shouldn't reach here normally)
+    if name in OPTIONAL_SCANNERS:
+        optional: Scanner = OPTIONAL_SCANNERS[name]()
+        return optional
+
+    return None
 
 
 def _resolve_dojo_config(

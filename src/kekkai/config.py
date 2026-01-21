@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import tomllib
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from .paths import app_base_dir
@@ -37,6 +37,33 @@ class DojoSettings:
 
 
 @dataclass(frozen=True)
+class ZapSettings:
+    """ZAP DAST scanner settings.
+
+    ZAP requires explicit target URL and enforces URL policy by default.
+    Private IPs are blocked unless explicitly allowed.
+    """
+
+    enabled: bool = False
+    target_url: str | None = None
+    allow_private_ips: bool = False  # Default: block private/internal IPs
+    allowed_domains: list[str] = field(default_factory=list)
+    timeout_seconds: int = 900
+
+
+@dataclass(frozen=True)
+class FalcoSettings:
+    """Falco runtime security settings.
+
+    EXPERIMENTAL: Linux-only. Requires explicit opt-in.
+    """
+
+    enabled: bool = False  # Must be explicitly enabled
+    rules_file: str | None = None
+    timeout_seconds: int = 300
+
+
+@dataclass(frozen=True)
 class Config:
     repo_path: Path
     run_base_dir: Path
@@ -45,6 +72,8 @@ class Config:
     pipeline: list[PipelineStep]
     scanners: list[str] | None = None
     dojo: DojoSettings | None = None
+    zap: ZapSettings | None = None
+    falco: FalcoSettings | None = None
 
 
 @dataclass(frozen=True)
@@ -143,6 +172,8 @@ def _coerce_config(values: Mapping[str, object]) -> Config:
     pipeline = _parse_pipeline(values.get("pipeline", []))
     scanners = _parse_scanners(values.get("scanners"))
     dojo = _parse_dojo(values.get("dojo"))
+    zap = _parse_zap(values.get("zap"))
+    falco = _parse_falco(values.get("falco"))
 
     return Config(
         repo_path=Path(repo_path),
@@ -152,6 +183,8 @@ def _coerce_config(values: Mapping[str, object]) -> Config:
         pipeline=pipeline,
         scanners=scanners,
         dojo=dojo,
+        zap=zap,
+        falco=falco,
     )
 
 
@@ -176,6 +209,47 @@ def _parse_dojo(value: object) -> DojoSettings | None:
         api_key=str(value.get("api_key", "")),
         product_name=str(value.get("product_name", "Kekkai Scans")),
         engagement_name=str(value.get("engagement_name", "Default Engagement")),
+    )
+
+
+def _parse_zap(value: object) -> ZapSettings | None:
+    """Parse ZAP settings from config.
+
+    ZAP is disabled by default and requires explicit target URL.
+    """
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        return None
+
+    allowed_domains = value.get("allowed_domains", [])
+    if isinstance(allowed_domains, str):
+        allowed_domains = [d.strip() for d in allowed_domains.split(",") if d.strip()]
+    elif not isinstance(allowed_domains, list):
+        allowed_domains = []
+
+    return ZapSettings(
+        enabled=bool(value.get("enabled", False)),
+        target_url=value.get("target_url") if value.get("target_url") else None,
+        allow_private_ips=bool(value.get("allow_private_ips", False)),
+        allowed_domains=list(allowed_domains),
+        timeout_seconds=int(value.get("timeout_seconds", 900)),
+    )
+
+
+def _parse_falco(value: object) -> FalcoSettings | None:
+    """Parse Falco settings from config.
+
+    Falco is disabled by default (Linux-only, experimental).
+    """
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        return None
+    return FalcoSettings(
+        enabled=bool(value.get("enabled", False)),
+        rules_file=value.get("rules_file") if value.get("rules_file") else None,
+        timeout_seconds=int(value.get("timeout_seconds", 300)),
     )
 
 
