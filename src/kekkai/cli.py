@@ -10,13 +10,22 @@ from pathlib import Path
 from typing import cast
 
 from . import dojo, manifest
-from .config import ConfigOverrides, DojoSettings, load_config
+from .config import ConfigOverrides, DojoSettings, PolicySettings, load_config
 from .dojo_import import DojoConfig, import_results_to_dojo
 from .paths import app_base_dir, config_path, ensure_dir, is_within_base, safe_join
+from .policy import (
+    EXIT_SCAN_ERROR,
+    PolicyConfig,
+    PolicyResult,
+    default_ci_policy,
+    evaluate_policy,
+    parse_fail_on,
+)
 from .runner import StepResult, run_step
 from .scanners import (
     OPTIONAL_SCANNERS,
     SCANNER_REGISTRY,
+    Finding,
     ScanContext,
     Scanner,
     ScanResult,
@@ -77,6 +86,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Enable Falco runtime security (Linux-only, experimental)",
     )
 
+    # CI mode and policy enforcement options
+    scan_parser.add_argument(
+        "--ci",
+        action="store_true",
+        help="Enable CI mode: fail on policy violations (default: critical/high)",
+    )
+    scan_parser.add_argument(
+        "--fail-on",
+        type=str,
+        help="Severity levels to fail on (e.g., 'critical,high' or 'medium')",
+    )
+    scan_parser.add_argument(
+        "--output",
+        type=str,
+        help="Path for policy result JSON output",
+    )
+
     dojo_parser = subparsers.add_parser("dojo", help="manage local DefectDojo stack")
     dojo_subparsers = dojo_parser.add_subparsers(dest="dojo_command")
 
@@ -116,6 +142,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             parsed.target_url,
             parsed.allow_private_ips,
             parsed.enable_falco,
+            parsed.ci,
+            parsed.fail_on,
+            parsed.output,
         )
     if parsed.command == "dojo":
         return _command_dojo(parsed)
@@ -164,6 +193,9 @@ def _command_scan(
     target_url_override: str | None = None,
     allow_private_ips: bool = False,
     enable_falco: bool = False,
+    ci_mode: bool = False,
+    fail_on_override: str | None = None,
+    output_path: str | None = None,
 ) -> int:
     cfg_path = _resolve_config_path(config_override)
     if not cfg_path.exists():
@@ -296,8 +328,32 @@ def _command_scan(
     )
     manifest.write_manifest(run_dir / "run.json", run_manifest)
 
+    # Collect all findings for policy evaluation
+    all_findings: list[Finding] = []
+    scan_errors: list[str] = []
+    for scan_res in scan_results:
+        if scan_res.success:
+            all_findings.extend(dedupe_findings(scan_res.findings))
+        elif scan_res.error:
+            scan_errors.append(f"{scan_res.scanner}: {scan_res.error}")
+
+    # Apply policy in CI mode
+    if ci_mode or fail_on_override:
+        policy_config = _resolve_policy_config(cfg.policy, fail_on_override, ci_mode)
+        policy_result = evaluate_policy(all_findings, policy_config, scan_errors)
+
+        # Write policy result JSON
+        result_path = Path(output_path) if output_path else (run_dir / "policy-result.json")
+        policy_result.write_json(result_path)
+
+        # Print summary
+        _print_policy_summary(policy_result)
+
+        print(f"Run complete: {run_dir}")
+        return policy_result.exit_code
+
     print(f"Run complete: {run_dir}")
-    return 0 if status_ok else 1
+    return 0 if status_ok else EXIT_SCAN_ERROR
 
 
 def _resolve_scanners(override: str | None, config_scanners: list[str] | None) -> list[str]:
@@ -306,6 +362,65 @@ def _resolve_scanners(override: str | None, config_scanners: list[str] | None) -
     if config_scanners:
         return config_scanners
     return []
+
+
+def _resolve_policy_config(
+    settings: PolicySettings | None,
+    fail_on_override: str | None,
+    ci_mode: bool,
+) -> PolicyConfig:
+    """Resolve policy configuration from settings and overrides.
+
+    Priority: --fail-on > config file [policy] > default CI policy
+    """
+    # --fail-on takes highest priority
+    if fail_on_override:
+        return parse_fail_on(fail_on_override)
+
+    # Use config file settings if available
+    if settings:
+        return PolicyConfig(
+            fail_on_critical=settings.fail_on_critical,
+            fail_on_high=settings.fail_on_high,
+            fail_on_medium=settings.fail_on_medium,
+            fail_on_low=settings.fail_on_low,
+            fail_on_info=settings.fail_on_info,
+            max_critical=settings.max_critical,
+            max_high=settings.max_high,
+            max_medium=settings.max_medium,
+            max_low=settings.max_low,
+            max_info=settings.max_info,
+            max_total=settings.max_total,
+        )
+
+    # Default CI policy
+    if ci_mode:
+        return default_ci_policy()
+
+    # Fallback (shouldn't reach here if ci_mode or fail_on is set)
+    return default_ci_policy()
+
+
+def _print_policy_summary(result: PolicyResult) -> None:
+    """Print policy evaluation summary to stdout."""
+    counts = result.counts
+    print(f"\nPolicy Evaluation: {'PASSED' if result.passed else 'FAILED'}")
+    print(f"  Findings: {counts.total} total")
+    print(f"    Critical: {counts.critical}")
+    print(f"    High: {counts.high}")
+    print(f"    Medium: {counts.medium}")
+    print(f"    Low: {counts.low}")
+    print(f"    Info: {counts.info}")
+
+    if result.violations:
+        print("  Violations:")
+        for v in result.violations:
+            print(f"    - {v.message}")
+
+    if result.scan_errors:
+        print("  Scan Errors:")
+        for e in result.scan_errors:
+            print(f"    - {e}")
 
 
 def _create_scanner(

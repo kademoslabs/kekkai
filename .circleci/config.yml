@@ -40,6 +40,55 @@ jobs:
             . .venv/bin/activate
             make ci
 
+  build_release:
+    docker:
+      - image: cimg/python:3.12
+    steps:
+      - checkout
+      - run:
+          name: Install tooling
+          command: |
+            python -m venv .venv
+            . .venv/bin/activate
+            make setup
+      - run:
+          name: Build release artifacts
+          command: |
+            . .venv/bin/activate
+            make release
+      - store_artifacts:
+          path: dist
+          destination: release-artifacts
+      - persist_to_workspace:
+          root: .
+          paths:
+            - dist
+
+  publish_release:
+    docker:
+      - image: cimg/python:3.12
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: Install GitHub CLI
+          command: |
+            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+            sudo apt-get update
+            sudo apt-get install -y gh
+      - run:
+          name: Create GitHub Release
+          command: |
+            VERSION=$(echo $CIRCLE_TAG | sed 's/^v//')
+            gh release create "$CIRCLE_TAG" \
+              --title "Kekkai $CIRCLE_TAG" \
+              --notes "Release $CIRCLE_TAG" \
+              dist/*.whl \
+              dist/*.tar.gz \
+              dist/requirements-frozen.txt
+
 workflows:
   develop:
     jobs:
@@ -54,3 +103,36 @@ workflows:
           filters:
             branches:
               only: main
+      - build_release:
+          requires:
+            - test_full
+          filters:
+            branches:
+              only: main
+
+  release:
+    jobs:
+      - test_full:
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
+      - build_release:
+          requires:
+            - test_full
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
+      - publish_release:
+          requires:
+            - build_release
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
+          context:
+            - github-release

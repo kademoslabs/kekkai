@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 PY := python3
 
-.PHONY: setup fmt lint test unit integration regression sec ci ci-quick clean
+.PHONY: setup fmt lint test unit integration regression sec ci ci-quick build sbom release clean
 
 setup:
 	python3 -m pip install -U pip wheel
@@ -36,5 +36,19 @@ ci-quick: fmt lint unit sec
 
 ci: fmt lint collect unit integration regression sec
 
+build: ## Build Python wheel and sdist
+	$(PY) -m pip install -q build
+	$(PY) -m build
+
+sbom: ## Generate Software Bill of Materials
+	@echo "Generating SBOM..."
+	@mkdir -p dist
+	pip freeze --exclude-editable > dist/requirements-frozen.txt
+	@echo "SBOM written to dist/requirements-frozen.txt"
+
+release: build sbom ## Build release artifacts
+	@echo "Release artifacts in dist/"
+	ls -la dist/
+
 clean:
-	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage coverage.xml
+	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage coverage.xml dist build *.egg-info src/*.egg-info

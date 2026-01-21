@@ -15,6 +15,12 @@ Run a local DefectDojo vulnerability management platform with one command.
 - **[Security Guide](dojo/dojo-security.md)** — Threat model and best practices
 - **[Troubleshooting](dojo/dojo-troubleshooting.md)** — Common issues and solutions
 
+### CI Mode (Policy Enforcement)
+
+Use Kekkai in CI/CD pipelines to fail builds on security findings.
+
+- **[CI Mode Guide](ci-mode.md)** — Policy enforcement with exit codes
+
 ### Getting Started
 
 New to Kekkai? Start here:
@@ -22,6 +28,7 @@ New to Kekkai? Start here:
 1. Read the [main README](../README.md) for project overview
 2. Follow the [Dojo Quick Start](dojo/dojo-quickstart.md) to run DefectDojo locally
 3. Check the [Dojo Guide](dojo/dojo.md) for advanced usage
+4. Set up CI with the [CI Mode Guide](ci-mode.md)
 
 ---
 
@@ -30,6 +37,7 @@ New to Kekkai? Start here:
 ```
 docs/
 ├── README.md                    # This file
+├── ci-mode.md                   # CI policy enforcement guide
 ├── dojo/                        # DefectDojo Docs
 ├   ├── dojo-quickstart.md           # 5-minute quick start
 ├   ├── dojo.md                      # Complete Dojo guide

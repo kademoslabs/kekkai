@@ -64,6 +64,26 @@ class FalcoSettings:
 
 
 @dataclass(frozen=True)
+class PolicySettings:
+    """Policy enforcement settings for CI mode.
+
+    Configures which severity levels trigger failures and threshold limits.
+    """
+
+    fail_on_critical: bool = True
+    fail_on_high: bool = True
+    fail_on_medium: bool = False
+    fail_on_low: bool = False
+    fail_on_info: bool = False
+    max_critical: int = 0
+    max_high: int = 0
+    max_medium: int = -1  # -1 = no limit
+    max_low: int = -1
+    max_info: int = -1
+    max_total: int = -1
+
+
+@dataclass(frozen=True)
 class Config:
     repo_path: Path
     run_base_dir: Path
@@ -74,6 +94,7 @@ class Config:
     dojo: DojoSettings | None = None
     zap: ZapSettings | None = None
     falco: FalcoSettings | None = None
+    policy: PolicySettings | None = None
 
 
 @dataclass(frozen=True)
@@ -174,6 +195,7 @@ def _coerce_config(values: Mapping[str, object]) -> Config:
     dojo = _parse_dojo(values.get("dojo"))
     zap = _parse_zap(values.get("zap"))
     falco = _parse_falco(values.get("falco"))
+    policy = _parse_policy(values.get("policy"))
 
     return Config(
         repo_path=Path(repo_path),
@@ -185,6 +207,7 @@ def _coerce_config(values: Mapping[str, object]) -> Config:
         dojo=dojo,
         zap=zap,
         falco=falco,
+        policy=policy,
     )
 
 
@@ -295,3 +318,36 @@ def _parse_pipeline(value: object) -> list[PipelineStep]:
             raise ValueError("pipeline.args must be a list of strings")
         steps.append(PipelineStep(name=name, args=list(args)))
     return steps
+
+
+def _parse_policy(value: object) -> PolicySettings | None:
+    """Parse policy settings from config.
+
+    Policy settings control CI mode behavior and thresholds.
+    """
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        return None
+
+    def _get_int(key: str, default: int) -> int:
+        v = value.get(key, default)
+        if isinstance(v, int):
+            return v
+        if isinstance(v, str) and (v.lstrip("-").isdigit()):
+            return int(v)
+        return default
+
+    return PolicySettings(
+        fail_on_critical=bool(value.get("fail_on_critical", True)),
+        fail_on_high=bool(value.get("fail_on_high", True)),
+        fail_on_medium=bool(value.get("fail_on_medium", False)),
+        fail_on_low=bool(value.get("fail_on_low", False)),
+        fail_on_info=bool(value.get("fail_on_info", False)),
+        max_critical=_get_int("max_critical", 0),
+        max_high=_get_int("max_high", 0),
+        max_medium=_get_int("max_medium", -1),
+        max_low=_get_int("max_low", -1),
+        max_info=_get_int("max_info", -1),
+        max_total=_get_int("max_total", -1),
+    )

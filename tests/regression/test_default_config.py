@@ -128,3 +128,30 @@ class TestConfigDefaultsSecure:
         if scanners_value is not None and isinstance(scanners_value, list | str):
             assert "zap" not in scanners_value
             assert "falco" not in scanners_value
+
+    def test_default_config_no_policy(self, tmp_path: Path) -> None:
+        """Default config should not include policy settings (CI mode opt-in)."""
+        cfg = default_config(tmp_path)
+        assert "policy" not in cfg
+
+
+@pytest.mark.regression
+class TestCIModeNotDefaultEnabled:
+    """Verify CI mode is not enabled by default."""
+
+    def test_policy_not_in_default_config(self, tmp_path: Path) -> None:
+        """Policy should not be in default config."""
+        cfg = default_config(tmp_path)
+        assert "policy" not in cfg
+
+    def test_ci_mode_requires_explicit_flag(self) -> None:
+        """CI mode should require explicit --ci or --fail-on flag."""
+        # This is a documentation test - CI mode is opt-in
+        from kekkai.policy import default_ci_policy
+
+        policy = default_ci_policy()
+        # When CI mode IS enabled, it fails on critical/high by default
+        assert policy.fail_on_critical is True
+        assert policy.fail_on_high is True
+        assert policy.max_critical == 0
+        assert policy.max_high == 0
