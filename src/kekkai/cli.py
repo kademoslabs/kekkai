@@ -10,9 +10,11 @@ from pathlib import Path
 from typing import cast
 
 from . import dojo, manifest
-from .config import ConfigOverrides, load_config
+from .config import ConfigOverrides, DojoSettings, load_config
+from .dojo_import import DojoConfig, import_results_to_dojo
 from .paths import app_base_dir, config_path, ensure_dir, is_within_base, safe_join
 from .runner import StepResult, run_step
+from .scanners import SCANNER_REGISTRY, ScanContext, ScanResult, dedupe_findings
 
 RUN_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_.-]{3,64}$")
 
@@ -34,6 +36,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     scan_parser.add_argument("--repo", type=str, help="Path to repository")
     scan_parser.add_argument("--run-dir", type=str, help="Override run output directory")
     scan_parser.add_argument("--run-id", type=str, help="Override run id")
+    scan_parser.add_argument(
+        "--scanners",
+        type=str,
+        help="Comma-separated list of scanners (trivy,semgrep,gitleaks)",
+    )
+    scan_parser.add_argument(
+        "--import-dojo",
+        action="store_true",
+        help="Import results to local DefectDojo",
+    )
+    scan_parser.add_argument("--dojo-url", type=str, help="DefectDojo base URL")
+    scan_parser.add_argument("--dojo-api-key", type=str, help="DefectDojo API key")
 
     dojo_parser = subparsers.add_parser("dojo", help="manage local DefectDojo stack")
     dojo_subparsers = dojo_parser.add_subparsers(dest="dojo_command")
@@ -62,7 +76,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     if parsed.command == "init":
         return _command_init(parsed.config, parsed.force)
     if parsed.command == "scan":
-        return _command_scan(parsed.config, parsed.repo, parsed.run_dir, parsed.run_id)
+        return _command_scan(
+            parsed.config,
+            parsed.repo,
+            parsed.run_dir,
+            parsed.run_id,
+            parsed.scanners,
+            parsed.import_dojo,
+            parsed.dojo_url,
+            parsed.dojo_api_key,
+        )
     if parsed.command == "dojo":
         return _command_dojo(parsed)
 
@@ -103,6 +126,10 @@ def _command_scan(
     repo_override: str | None,
     run_dir_override: str | None,
     run_id_override: str | None,
+    scanners_override: str | None,
+    import_dojo: bool,
+    dojo_url_override: str | None,
+    dojo_api_key_override: str | None,
 ) -> int:
     cfg_path = _resolve_config_path(config_override)
     if not cfg_path.exists():
@@ -126,10 +153,15 @@ def _command_scan(
     run_dir = _resolve_run_dir(base_dir, cfg.run_base_dir, run_id, run_dir_override)
     ensure_dir(run_dir)
 
+    # Determine which scanners to run
+    scanner_names = _resolve_scanners(scanners_override, cfg.scanners)
+
     started_at = _now_iso()
-    results: list[StepResult] = []
+    step_results: list[StepResult] = []
+    scan_results: list[ScanResult] = []
     status_ok = True
 
+    # Run pipeline steps if configured
     for step in cfg.pipeline:
         result = run_step(
             step,
@@ -137,10 +169,62 @@ def _command_scan(
             env_allowlist=cfg.env_allowlist,
             timeout_seconds=cfg.timeout_seconds,
         )
-        results.append(result)
+        step_results.append(result)
         if result.exit_code != 0:
             status_ok = False
             break
+
+    # Run container-based scanners
+    if scanner_names and status_ok:
+        commit_sha = _get_commit_sha(repo_path)
+        ctx = ScanContext(
+            repo_path=repo_path,
+            output_dir=run_dir,
+            run_id=run_id,
+            commit_sha=commit_sha,
+            timeout_seconds=cfg.timeout_seconds,
+        )
+        scanners_map = {}
+        for name in scanner_names:
+            scanner_cls = SCANNER_REGISTRY.get(name)
+            if not scanner_cls:
+                print(f"Unknown scanner: {name}")
+                continue
+            scanner = scanner_cls()
+            scanners_map[name] = scanner
+            print(f"Running {name}...")
+            scan_result = scanner.run(ctx)
+            scan_results.append(scan_result)
+            if not scan_result.success:
+                print(f"  {name} failed: {scan_result.error}")
+            else:
+                deduped = dedupe_findings(scan_result.findings)
+                print(f"  {name}: {len(deduped)} findings")
+
+        # Import to DefectDojo if requested
+        if import_dojo or (cfg.dojo and cfg.dojo.enabled):
+            dojo_cfg = _resolve_dojo_config(
+                cfg.dojo,
+                dojo_url_override,
+                dojo_api_key_override,
+            )
+            if dojo_cfg and dojo_cfg.api_key:
+                print("Importing to DefectDojo...")
+                import_results = import_results_to_dojo(
+                    config=dojo_cfg,
+                    results=scan_results,
+                    scanners=scanners_map,
+                    run_id=run_id,
+                    commit_sha=commit_sha,
+                )
+                for ir in import_results:
+                    if ir.success:
+                        created, closed = ir.findings_created, ir.findings_closed
+                        print(f"  Imported: {created} created, {closed} closed")
+                    else:
+                        print(f"  Import failed: {ir.error}")
+            else:
+                print("DefectDojo import skipped: no API key configured")
 
     finished_at = _now_iso()
     run_manifest = manifest.build_manifest(
@@ -149,12 +233,69 @@ def _command_scan(
         run_dir=run_dir,
         started_at=started_at,
         finished_at=finished_at,
-        steps=results,
+        steps=step_results,
     )
     manifest.write_manifest(run_dir / "run.json", run_manifest)
 
     print(f"Run complete: {run_dir}")
     return 0 if status_ok else 1
+
+
+def _resolve_scanners(override: str | None, config_scanners: list[str] | None) -> list[str]:
+    if override:
+        return [s.strip() for s in override.split(",") if s.strip()]
+    if config_scanners:
+        return config_scanners
+    return []
+
+
+def _resolve_dojo_config(
+    settings: DojoSettings | None,
+    url_override: str | None,
+    api_key_override: str | None,
+) -> DojoConfig | None:
+    base_url = url_override or os.environ.get("KEKKAI_DOJO_URL")
+    api_key = api_key_override or os.environ.get("KEKKAI_DOJO_API_KEY")
+
+    if settings:
+        base_url = base_url or settings.base_url
+        api_key = api_key or settings.api_key
+        return DojoConfig(
+            base_url=base_url or "http://localhost:8080",
+            api_key=api_key or "",
+            product_name=settings.product_name,
+            engagement_name=settings.engagement_name,
+        )
+
+    if base_url or api_key:
+        return DojoConfig(
+            base_url=base_url or "http://localhost:8080",
+            api_key=api_key or "",
+        )
+    return None
+
+
+def _get_commit_sha(repo_path: Path) -> str | None:
+    import shutil
+    import subprocess  # nosec B404
+
+    git = shutil.which("git")
+    if not git:
+        return None
+    try:
+        result = subprocess.run(  # noqa: S603  # nosec B603
+            [git, "rev-parse", "HEAD"],
+            cwd=str(repo_path),
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return None
 
 
 def _command_dojo(parsed: argparse.Namespace) -> int:

@@ -18,6 +18,7 @@ DEFAULT_ENV_ALLOWLIST = [
     "LC_ALL",
     "LC_CTYPE",
 ]
+DEFAULT_SCANNERS = ["trivy", "semgrep", "gitleaks"]
 
 
 @dataclass(frozen=True)
@@ -27,12 +28,23 @@ class PipelineStep:
 
 
 @dataclass(frozen=True)
+class DojoSettings:
+    enabled: bool = False
+    base_url: str = "http://localhost:8080"
+    api_key: str = ""
+    product_name: str = "Kekkai Scans"
+    engagement_name: str = "Default Engagement"
+
+
+@dataclass(frozen=True)
 class Config:
     repo_path: Path
     run_base_dir: Path
     timeout_seconds: int
     env_allowlist: list[str]
     pipeline: list[PipelineStep]
+    scanners: list[str] | None = None
+    dojo: DojoSettings | None = None
 
 
 @dataclass(frozen=True)
@@ -129,6 +141,8 @@ def _coerce_config(values: Mapping[str, object]) -> Config:
     timeout_seconds = _expect_int(values.get("timeout_seconds"), "timeout_seconds")
     env_allowlist = _expect_str_list(values.get("env_allowlist"), "env_allowlist")
     pipeline = _parse_pipeline(values.get("pipeline", []))
+    scanners = _parse_scanners(values.get("scanners"))
+    dojo = _parse_dojo(values.get("dojo"))
 
     return Config(
         repo_path=Path(repo_path),
@@ -136,6 +150,32 @@ def _coerce_config(values: Mapping[str, object]) -> Config:
         timeout_seconds=timeout_seconds,
         env_allowlist=env_allowlist,
         pipeline=pipeline,
+        scanners=scanners,
+        dojo=dojo,
+    )
+
+
+def _parse_scanners(value: object) -> list[str] | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return [s.strip() for s in value.split(",") if s.strip()]
+    if isinstance(value, list):
+        return [str(s) for s in value]
+    return None
+
+
+def _parse_dojo(value: object) -> DojoSettings | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        return None
+    return DojoSettings(
+        enabled=bool(value.get("enabled", False)),
+        base_url=str(value.get("base_url", "http://localhost:8080")),
+        api_key=str(value.get("api_key", "")),
+        product_name=str(value.get("product_name", "Kekkai Scans")),
+        engagement_name=str(value.get("engagement_name", "Default Engagement")),
     )
 
 
@@ -156,7 +196,7 @@ def _expect_int(value: object, name: str) -> int:
 def _expect_str_list(value: object, name: str) -> list[str]:
     if isinstance(value, str):
         return [item.strip() for item in value.split(",") if item.strip()]
-    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+    if isinstance(value, Sequence) and not isinstance(value, str | bytes):
         items: list[str] = []
         for item in value:
             if not isinstance(item, str):

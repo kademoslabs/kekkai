@@ -1,0 +1,20 @@
+{
+  "results": [
+    {
+      "check_id": "python.lang.security.audit.exec-detected",
+      "path": "src/main.py",
+      "start": {"line": 42, "col": 1},
+      "end": {"line": 42, "col": 20},
+      "extra": {
+        "severity": "ERROR",
+        "message": "Detected use of exec(). This is dangerous.",
+        "fingerprint": "abc123def456",
+        "metadata": {
+          "cwe": ["CWE-94"],
+          "message": "Code injection via exec()"
+        }
+      }
+    }
+  ],
+  "errors": []
+}
