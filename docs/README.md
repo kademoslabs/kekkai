@@ -21,6 +21,12 @@ Use Kekkai in CI/CD pipelines to fail builds on security findings.
 
 - **[CI Mode Guide](ci-mode.md)** — Policy enforcement with exit codes
 
+### Portal (Hosted Dashboard)
+
+Multi-tenant hosted security dashboard with authenticated uploads.
+
+- **[Portal Guide](portal/README.md)** — Setup, API reference, and configuration
+
 ### Getting Started
 
 New to Kekkai? Start here:
