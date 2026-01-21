@@ -67,3 +67,4 @@ tmp/
 .cache/
 
 .github/instructions/snyk_rules.instructions.md
+.docs/
