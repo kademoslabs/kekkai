@@ -126,6 +126,40 @@ def main(argv: Sequence[str] | None = None) -> int:
     dojo_open.add_argument("--compose-dir", type=str, help="Directory for compose files")
     dojo_open.add_argument("--port", type=int, help="HTTP port for the UI")
 
+    # ThreatFlow threat modeling subcommand
+    threatflow_parser = subparsers.add_parser(
+        "threatflow", help="generate threat model for a repository"
+    )
+    threatflow_parser.add_argument("--repo", type=str, help="Path to repository to analyze")
+    threatflow_parser.add_argument("--output-dir", type=str, help="Output directory for artifacts")
+    threatflow_parser.add_argument(
+        "--model-mode",
+        type=str,
+        choices=["local", "openai", "anthropic", "mock"],
+        help="LLM backend: local (default), openai, anthropic, or mock for testing",
+    )
+    threatflow_parser.add_argument(
+        "--model-path", type=str, help="Path to local model file (for local mode)"
+    )
+    threatflow_parser.add_argument(
+        "--api-key", type=str, help="API key for remote LLM (prefer env var)"
+    )
+    threatflow_parser.add_argument("--model-name", type=str, help="Specific model name to use")
+    threatflow_parser.add_argument(
+        "--max-files", type=int, default=500, help="Maximum files to analyze"
+    )
+    threatflow_parser.add_argument(
+        "--timeout", type=int, default=300, help="Timeout in seconds for model calls"
+    )
+    threatflow_parser.add_argument(
+        "--no-redact", action="store_true", help="Disable secret redaction (NOT RECOMMENDED)"
+    )
+    threatflow_parser.add_argument(
+        "--no-sanitize",
+        action="store_true",
+        help="Disable prompt injection sanitization (NOT RECOMMENDED)",
+    )
+
     parsed = parser.parse_args(args)
     if parsed.command == "init":
         return _command_init(parsed.config, parsed.force)
@@ -148,6 +182,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     if parsed.command == "dojo":
         return _command_dojo(parsed)
+    if parsed.command == "threatflow":
+        return _command_threatflow(parsed)
 
     parser.print_help()
     return 1
@@ -568,6 +604,119 @@ def _command_dojo(parsed: argparse.Namespace) -> int:
 
     print("Unknown dojo command. Use `kekkai dojo --help`.")
     return 1
+
+
+def _command_threatflow(parsed: argparse.Namespace) -> int:
+    """Run ThreatFlow threat model analysis."""
+    from .threatflow import ThreatFlow, ThreatFlowConfig
+
+    # Resolve repository path
+    repo_override = cast(str | None, getattr(parsed, "repo", None))
+    repo_path = Path(repo_override) if repo_override else Path.cwd()
+    repo_path = repo_path.expanduser().resolve()
+
+    if not repo_path.exists() or not repo_path.is_dir():
+        print(f"Error: Repository path not found: {repo_path}")
+        return 1
+
+    # Build config from CLI args and environment
+    model_mode_raw = getattr(parsed, "model_mode", None) or os.environ.get("KEKKAI_THREATFLOW_MODE")
+    model_mode: str = model_mode_raw if model_mode_raw else "local"
+    model_path = getattr(parsed, "model_path", None) or os.environ.get(
+        "KEKKAI_THREATFLOW_MODEL_PATH"
+    )
+    api_key = getattr(parsed, "api_key", None) or os.environ.get("KEKKAI_THREATFLOW_API_KEY")
+    model_name = getattr(parsed, "model_name", None) or os.environ.get(
+        "KEKKAI_THREATFLOW_MODEL_NAME"
+    )
+
+    config = ThreatFlowConfig(
+        model_mode=model_mode,
+        model_path=model_path,
+        api_key=api_key,
+        model_name=model_name,
+        max_files=getattr(parsed, "max_files", 500),
+        timeout_seconds=getattr(parsed, "timeout", 300),
+        redact_secrets=not getattr(parsed, "no_redact", False),
+        sanitize_content=not getattr(parsed, "no_sanitize", False),
+    )
+
+    # Resolve output directory
+    output_dir_override = cast(str | None, getattr(parsed, "output_dir", None))
+    output_dir = Path(output_dir_override) if output_dir_override else None
+
+    # Display banner
+    print(_threatflow_banner())
+    print(f"Repository: {repo_path}")
+    print(f"Model mode: {model_mode}")
+
+    # Warn about remote mode
+    if model_mode in ("openai", "anthropic"):
+        print(
+            "\n*** WARNING: Using remote API. Code content will be sent to external service. ***\n"
+        )
+        if not api_key:
+            print("Error: API key required for remote mode.")
+            print("  Set --api-key or KEKKAI_THREATFLOW_API_KEY")
+            return 1
+
+    # Warn about disabled security controls
+    if config.redact_secrets is False:
+        print("*** WARNING: Secret redaction is DISABLED. Secrets may be sent to LLM. ***")
+    if config.sanitize_content is False:
+        print("*** WARNING: Prompt sanitization is DISABLED. Injection attacks possible. ***")
+
+    print("\nAnalyzing repository...")
+
+    # Run analysis
+    tf = ThreatFlow(config=config)
+    result = tf.analyze(repo_path=repo_path, output_dir=output_dir)
+
+    if not result.success:
+        print(f"\nAnalysis failed: {result.error}")
+        return 1
+
+    # Print results
+    print(f"\nAnalysis complete in {result.duration_ms}ms")
+    print(f"Files processed: {result.files_processed}")
+    print(f"Files skipped: {result.files_skipped}")
+
+    if result.warnings:
+        print("\nWarnings:")
+        for w in result.warnings:
+            print(f"  - {w}")
+
+    if result.injection_warnings:
+        print("\nInjection patterns detected (sanitized):")
+        for w in result.injection_warnings[:5]:  # Limit output
+            print(f"  - {w}")
+        if len(result.injection_warnings) > 5:
+            print(f"  ... and {len(result.injection_warnings) - 5} more")
+
+    print("\nOutput files:")
+    for path in result.output_files:
+        print(f"  - {path}")
+
+    # Print threat summary if available
+    if result.artifacts:
+        counts = result.artifacts.threat_count_by_risk()
+        total = len(result.artifacts.threats)
+        print(f"\nThreats identified: {total}")
+        for level in ["critical", "high", "medium", "low"]:
+            if counts.get(level, 0) > 0:
+                print(f"  - {level.capitalize()}: {counts[level]}")
+
+    return 0
+
+
+def _threatflow_banner() -> str:
+    """Return ThreatFlow banner."""
+    return (
+        "\n"
+        "ThreatFlow — AI-Assisted Threat Modeling\n"
+        "=========================================\n"
+        "STRIDE analysis powered by local-first LLM\n"
+    )
 
 
 def _resolve_dojo_compose_dir(parsed: argparse.Namespace) -> str | None:

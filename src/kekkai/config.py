@@ -84,6 +84,26 @@ class PolicySettings:
 
 
 @dataclass(frozen=True)
+class ThreatFlowSettings:
+    """ThreatFlow threat modeling settings.
+
+    Configures LLM backend and security controls.
+    """
+
+    enabled: bool = False
+    model_mode: str = "local"  # local, openai, anthropic, mock
+    model_path: str | None = None  # For local models
+    api_key: str | None = None  # For remote APIs (should use env var)
+    api_base: str | None = None  # Custom API endpoint
+    model_name: str | None = None  # Specific model to use
+    max_files: int = 500
+    timeout_seconds: int = 300
+    redact_secrets: bool = True
+    sanitize_content: bool = True
+    warn_on_injection: bool = True
+
+
+@dataclass(frozen=True)
 class Config:
     repo_path: Path
     run_base_dir: Path
@@ -95,6 +115,7 @@ class Config:
     zap: ZapSettings | None = None
     falco: FalcoSettings | None = None
     policy: PolicySettings | None = None
+    threatflow: ThreatFlowSettings | None = None
 
 
 @dataclass(frozen=True)
@@ -196,6 +217,7 @@ def _coerce_config(values: Mapping[str, object]) -> Config:
     zap = _parse_zap(values.get("zap"))
     falco = _parse_falco(values.get("falco"))
     policy = _parse_policy(values.get("policy"))
+    threatflow = _parse_threatflow(values.get("threatflow"))
 
     return Config(
         repo_path=Path(repo_path),
@@ -208,6 +230,7 @@ def _coerce_config(values: Mapping[str, object]) -> Config:
         zap=zap,
         falco=falco,
         policy=policy,
+        threatflow=threatflow,
     )
 
 
@@ -350,4 +373,29 @@ def _parse_policy(value: object) -> PolicySettings | None:
         max_low=_get_int("max_low", -1),
         max_info=_get_int("max_info", -1),
         max_total=_get_int("max_total", -1),
+    )
+
+
+def _parse_threatflow(value: object) -> ThreatFlowSettings | None:
+    """Parse ThreatFlow settings from config.
+
+    ThreatFlow is disabled by default and uses local model by default when enabled.
+    """
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        return None
+
+    return ThreatFlowSettings(
+        enabled=bool(value.get("enabled", False)),
+        model_mode=str(value.get("model_mode", "local")),
+        model_path=value.get("model_path") if value.get("model_path") else None,
+        api_key=value.get("api_key") if value.get("api_key") else None,
+        api_base=value.get("api_base") if value.get("api_base") else None,
+        model_name=value.get("model_name") if value.get("model_name") else None,
+        max_files=int(value.get("max_files", 500)),
+        timeout_seconds=int(value.get("timeout_seconds", 300)),
+        redact_secrets=bool(value.get("redact_secrets", True)),
+        sanitize_content=bool(value.get("sanitize_content", True)),
+        warn_on_injection=bool(value.get("warn_on_injection", True)),
     )
