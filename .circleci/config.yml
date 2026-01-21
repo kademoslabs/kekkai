@@ -1,7 +1,7 @@
 version: 2.1
 
 jobs:
-  test:
+  test_quick:
     docker:
       - image: cimg/python:3.12
     steps:
@@ -13,6 +13,28 @@ jobs:
             . .venv/bin/activate
             make setup
       - run:
+          name: CI gate (quick)
+          command: |
+            . .venv/bin/activate
+            make ci-quick
+
+  test_full:
+    docker:
+      - image: cimg/python:3.12
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: Install tooling
+          command: |
+            python -m venv .venv
+            . .venv/bin/activate
+            make setup
+            if ! command -v docker-compose >/dev/null 2>&1; then
+              sudo apt-get update
+              sudo apt-get install -y docker-compose
+            fi
+      - run:
           name: CI gate
           command: |
             . .venv/bin/activate
@@ -21,14 +43,14 @@ jobs:
 workflows:
   develop:
     jobs:
-      - test:
+      - test_quick:
           filters:
             branches:
               only: develop
 
   main:
     jobs:
-      - test:
+      - test_full:
           filters:
             branches:
               only: main

@@ -1,0 +1,183 @@
+from __future__ import annotations
+
+import os
+import tomllib
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from pathlib import Path
+
+from .paths import app_base_dir
+
+DEFAULT_TIMEOUT_SECONDS = 900
+DEFAULT_ENV_ALLOWLIST = [
+    "PATH",
+    "HOME",
+    "USER",
+    "SHELL",
+    "LANG",
+    "LC_ALL",
+    "LC_CTYPE",
+]
+
+
+@dataclass(frozen=True)
+class PipelineStep:
+    name: str
+    args: list[str]
+
+
+@dataclass(frozen=True)
+class Config:
+    repo_path: Path
+    run_base_dir: Path
+    timeout_seconds: int
+    env_allowlist: list[str]
+    pipeline: list[PipelineStep]
+
+
+@dataclass(frozen=True)
+class ConfigOverrides:
+    repo_path: Path | None = None
+    run_base_dir: Path | None = None
+    timeout_seconds: int | None = None
+    env_allowlist: list[str] | None = None
+
+
+def default_config(base_dir: Path) -> dict[str, object]:
+    return {
+        "repo_path": ".",
+        "run_base_dir": str(base_dir / "runs"),
+        "timeout_seconds": DEFAULT_TIMEOUT_SECONDS,
+        "env_allowlist": list(DEFAULT_ENV_ALLOWLIST),
+        "pipeline": [],
+    }
+
+
+def default_config_text(base_dir: Path) -> str:
+    env_allowlist = ", ".join(f'"{item}"' for item in DEFAULT_ENV_ALLOWLIST)
+    return (
+        "# Kekkai config\n"
+        "# Values can be overridden via env (KEKKAI_*) or CLI flags.\n\n"
+        f'repo_path = "."\n'
+        f'run_base_dir = "{base_dir / "runs"}"\n'
+        f"timeout_seconds = {DEFAULT_TIMEOUT_SECONDS}\n"
+        f"env_allowlist = [{env_allowlist}]\n\n"
+        "# [[pipeline]]\n"
+        '# name = "example"\n'
+        '# args = ["echo", "hello"]\n'
+    )
+
+
+def load_config(
+    path: Path,
+    env: Mapping[str, str] | None = None,
+    overrides: ConfigOverrides | None = None,
+    base_dir: Path | None = None,
+) -> Config:
+    env = env or os.environ
+    overrides = overrides or ConfigOverrides()
+    base_dir = base_dir or app_base_dir()
+
+    values: dict[str, object] = default_config(base_dir)
+    values.update(_load_from_file(path))
+    values.update(_load_from_env(env))
+    values.update(_load_from_overrides(overrides))
+
+    return _coerce_config(values)
+
+
+def _load_from_file(path: Path) -> dict[str, object]:
+    if not path.exists():
+        return {}
+    data = tomllib.loads(path.read_text())
+    if isinstance(data, dict) and "kekkai" in data and isinstance(data["kekkai"], dict):
+        data = data["kekkai"]
+    if not isinstance(data, dict):
+        raise ValueError("config file must contain a table")
+    return dict(data)
+
+
+def _load_from_env(env: Mapping[str, str]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    if value := env.get("KEKKAI_REPO_PATH"):
+        result["repo_path"] = value
+    if value := env.get("KEKKAI_RUN_BASE_DIR"):
+        result["run_base_dir"] = value
+    if value := env.get("KEKKAI_TIMEOUT_SECONDS"):
+        result["timeout_seconds"] = value
+    if value := env.get("KEKKAI_ENV_ALLOWLIST"):
+        result["env_allowlist"] = value
+    return result
+
+
+def _load_from_overrides(overrides: ConfigOverrides) -> dict[str, object]:
+    result: dict[str, object] = {}
+    if overrides.repo_path is not None:
+        result["repo_path"] = str(overrides.repo_path)
+    if overrides.run_base_dir is not None:
+        result["run_base_dir"] = str(overrides.run_base_dir)
+    if overrides.timeout_seconds is not None:
+        result["timeout_seconds"] = overrides.timeout_seconds
+    if overrides.env_allowlist is not None:
+        result["env_allowlist"] = overrides.env_allowlist
+    return result
+
+
+def _coerce_config(values: Mapping[str, object]) -> Config:
+    repo_path = _expect_str(values.get("repo_path"), "repo_path")
+    run_base_dir = _expect_str(values.get("run_base_dir"), "run_base_dir")
+    timeout_seconds = _expect_int(values.get("timeout_seconds"), "timeout_seconds")
+    env_allowlist = _expect_str_list(values.get("env_allowlist"), "env_allowlist")
+    pipeline = _parse_pipeline(values.get("pipeline", []))
+
+    return Config(
+        repo_path=Path(repo_path),
+        run_base_dir=Path(run_base_dir).expanduser(),
+        timeout_seconds=timeout_seconds,
+        env_allowlist=env_allowlist,
+        pipeline=pipeline,
+    )
+
+
+def _expect_str(value: object, name: str) -> str:
+    if isinstance(value, str):
+        return value
+    raise ValueError(f"{name} must be a string")
+
+
+def _expect_int(value: object, name: str) -> int:
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str) and value.isdigit():
+        return int(value)
+    raise ValueError(f"{name} must be an integer")
+
+
+def _expect_str_list(value: object, name: str) -> list[str]:
+    if isinstance(value, str):
+        return [item.strip() for item in value.split(",") if item.strip()]
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        items: list[str] = []
+        for item in value:
+            if not isinstance(item, str):
+                raise ValueError(f"{name} must be a list of strings")
+            items.append(item)
+        return items
+    raise ValueError(f"{name} must be a list of strings")
+
+
+def _parse_pipeline(value: object) -> list[PipelineStep]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise ValueError("pipeline must be a list")
+    steps: list[PipelineStep] = []
+    for item in value:
+        if not isinstance(item, dict):
+            raise ValueError("pipeline entries must be tables")
+        name = _expect_str(item.get("name"), "pipeline.name")
+        args = item.get("args")
+        if not isinstance(args, list) or not all(isinstance(arg, str) for arg in args):
+            raise ValueError("pipeline.args must be a list of strings")
+        steps.append(PipelineStep(name=name, args=list(args)))
+    return steps

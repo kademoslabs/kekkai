@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 PY := python3
 
-.PHONY: setup fmt lint test unit integration regression sec ci clean
+.PHONY: setup fmt lint test unit integration regression sec ci ci-quick clean
 
 setup:
 	python3 -m pip install -U pip wheel
@@ -31,6 +31,8 @@ sec:
 collect:
 	pytest --collect-only -m "integration" -q
 	pytest --collect-only -m "regression" -q
+
+ci-quick: fmt lint unit sec
 
 ci: fmt lint collect unit integration regression sec
 
