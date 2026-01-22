@@ -27,6 +27,21 @@ Multi-tenant hosted security dashboard with authenticated uploads.
 
 - **[Portal Guide](portal/README.md)** — Setup, API reference, and configuration
 
+### ThreatFlow (AI-Powered Threat Modeling)
+
+Generate STRIDE-aligned threat models from your codebase.
+
+- **[ThreatFlow Guide](threatflow/README.md)** — Setup and usage guide
+
+### Operations (Production Hardening)
+
+Production-ready operations for backup, monitoring, and upgrades.
+
+- **[Backup & Restore Guide](ops/backup-restore.md)** — Automated backup and restore procedures
+- **[Upgrade Runbook](ops/upgrade-runbook.md)** — Safe upgrade procedures with rollback
+- **[Monitoring Guide](ops/monitoring.md)** — Alerts, metrics, and centralized logging
+- **[Incident Response](ops/incident-response.md)** — Incident classification and response
+
 ### Getting Started
 
 New to Kekkai? Start here:
@@ -43,12 +58,22 @@ New to Kekkai? Start here:
 ```
 docs/
 ├── README.md                    # This file
-├── ci-mode.md                   # CI policy enforcement guide
+├── ci/
+│   └── ci-mode.md               # CI policy enforcement guide
 ├── dojo/                        # DefectDojo Docs
-├   ├── dojo-quickstart.md           # 5-minute quick start
-├   ├── dojo.md                      # Complete Dojo guide
-├   ├── dojo-security.md             # Security considerations
-├   └── dojo-troubleshooting.md      # Common issues and solutions
+│   ├── dojo-quickstart.md       # 5-minute quick start
+│   ├── dojo.md                  # Complete Dojo guide
+│   ├── dojo-security.md         # Security considerations
+│   └── dojo-troubleshooting.md  # Common issues and solutions
+├── ops/                         # Operations Docs
+│   ├── backup-restore.md        # Backup and restore guide
+│   ├── upgrade-runbook.md       # Upgrade procedures
+│   ├── monitoring.md            # Monitoring and alerting
+│   └── incident-response.md     # Incident response procedures
+├── portal/                      # Portal Docs
+│   └── README.md                # Portal guide
+└── threatflow/                  # ThreatFlow Docs
+    └── README.md                # ThreatFlow guide
 ```
 
 ---

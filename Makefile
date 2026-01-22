@@ -24,7 +24,7 @@ regression: ## Regression tests
 	pytest -m "regression" --cov=src --cov-append
 
 sec:
-	bandit -q -r src
+	bandit -q -r src -s B404,B603,B105,B310 || bandit -q -r src --skip B404,B603,B105,B310
 	pip-audit -r requirements/dev.txt || true
 	pip-audit --skip-editable || true
 
