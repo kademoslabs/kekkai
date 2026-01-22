@@ -1,113 +1,83 @@
 <p align="center">
   <img src="https://raw.githubusercontent.com/kademoslabs/assets/main/logos/kekkai-slim.png" alt="Kekkai CLI Logo" width="250"/>
 </p>
-<p align="center"><i>Security that moves at developer speed. One command. Clean AppSec reports.</i></p>
+<p align="center"><i>One command. Clean AppSec reports.</i></p>
 <p align="center">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg"/>
   <img src="https://img.shields.io/badge/status-active-brightgreen"/>
 </p>
 
-# Kekkai
+# Kekkai 🛡️
 
-Kekkai orchestrates common open-source scanners locally, deduplicates noise, and produces a single actionable report for your repo.
+**Security that moves at developer speed.**
+*Local-first orchestration for Trivy, Semgrep, and DefectDojo.*
 
-- Website: https://kademos.org/kekkai
-- Docs: https://kademos.org/kekkai#docs
+**(Insert Hero GIF Here)**
+*> A terminal recording showing `kekkai scan` running, detecting a secret key via Gitleaks, and displaying a clean summary table.*
 
 ---
 
-## Quickstart
+## ⚡ Quick Start
 
-### Install
-> Add your actual install method(s) here (brew, curl, pipx, go install, etc.)
+Stop fighting with Docker Compose. Start scanning in 30 seconds.
+
+### Installation
 
 ```bash
-kekkai --version
+pip install kekkai
+# Or use our upcoming Homebrew tap (Coming Soon in v1.1)
+# brew install kademoslabs/tap/kekkai
+
 ```
 
-### Scan a project
+### 1. Scan your project (Local)
+
+Run industry-standard scanners (Trivy, Semgrep, Gitleaks) in unified Docker containers without installing them individually.
 
 ```bash
 cd your-repo
 kekkai scan
+
 ```
 
-### Output
+### 2. Spin up DefectDojo
 
-- `kekkai-report.json`
+Launch a full local vulnerability management platform (Nginx, Postgres, Redis, Celery) with one command.
 
-- `kekkai-report.sarif` (optional)
+```bash
+kekkai dojo up --wait --open
 
-- `kekkai-report.md` (optional)
-
-
----
-
-## What Kekkai runs (local-first)
-
-Kekkai is **bring-your-own-compute** by default: scanners run on your machine or CI runner.
-
-Supported scanners (configurable):
-
-- Trivy (containers & deps)
-
-- Semgrep (SAST)
-
-- Gitleaks (secrets)
-
-- ZAP (DAST)
-
-> Replace with your exact scanner set and add links.
-
----
-
-## Enterprise Edition (ThreatFlow)
-
-Kekkai Enterprise adds:
-
-- **ThreatFlow**: generates `THREATS.md` from your architecture and code context
-
-- Hosted portal upload + team dashboards
-
-- RBAC/SSO and audit trails
-
-- Policy packs for regulated teams
-
-Contact: [enterprise@kademos.org](mailto:enterprise@kademos.org)
-
----
-
-## Configuration
-
-- `kekkai.yml` supports enabling/disabling scanners, thresholds, and output formats.
-
-```yaml
-scanners:
-  semgrep: true
-  gitleaks: true
-  trivy: true
-outputs:
-  sarif: true
-  markdown: true
 ```
----
 
-## Security
+### 3. Generate a Threat Model (AI)
 
-Please report vulnerabilities privately: **[security@kademos.org](mailto:security@kademos.org)**
-See `SECURITY.md`.
+Generate a STRIDE threat model and Data Flow Diagram using your local LLM.
 
----
+```bash
+kekkai threatflow --repo . --model-mode local
 
-## Contributing
-
-- Good first issues are tagged.
-
-- Run `make test` before opening a PR.
-    See `CONTRIBUTING.md`.
+```
 
 ---
 
-## License
+## 🛑 The Problem vs. Kekkai
 
-Apache-2.0.
+| Feature | The Old Way | The Kekkai Way |
+| --- | --- | --- |
+| **Tooling** | Manually install/update 5+ tools (Trivy, Semgrep, etc.) | **One Binary.** `kekkai scan` auto-pulls and runs the latest scanner containers. |
+| **Reporting** | Parse 5 different JSON formats manually. | **Unified Output.** One deduplicated `kekkai-report.json` for all findings. |
+| **DefectDojo** | Write a 200-line `docker-compose.yml` and debug networking. | **One Command.** `kekkai dojo up` automates the entire stack setup. |
+| **Threat Modeling** | Expensive consultants or manual whiteboarding. | **AI Agent.** `kekkai threatflow` generates `THREATS.md` locally. |
+| **CI/CD** | Write complex bash scripts to break builds. | **Policy Engine.** `kekkai scan --ci --fail-on high`. |
+
+---
+
+## 🔒 Enterprise Features (Portal)
+
+For teams that need centralized management, **Kekkai Portal** offers:
+
+* **SAML 2.0 SSO** with Replay Protection
+* **Role-Based Access Control (RBAC)**
+* **Cryptographically Signed Audit Logs**
+
+*Built by Kademos Labs.*
