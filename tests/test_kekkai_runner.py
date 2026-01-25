@@ -28,7 +28,7 @@ def test_runner_env_allowlist(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
 
 def test_runner_rejects_non_list_args(tmp_path: Path) -> None:
     step = PipelineStep(name="bad", args=["echo", "ok"])
-    object.__setattr__(step, "args", "echo ok")  # type: ignore[misc]
+    object.__setattr__(step, "args", "echo ok")
     with pytest.raises(ValueError):
         run_step(step, cwd=tmp_path, env_allowlist=[], timeout_seconds=1)
 

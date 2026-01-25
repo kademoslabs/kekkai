@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -47,7 +48,7 @@ def test_process_submission_propagates_error(
 def test_web_get_form() -> None:
     captured: dict[str, object] = {}
 
-    def start_response(status: str, headers: list[tuple[str, str]]):
+    def start_response(status: str, headers: list[tuple[str, str]]) -> Any:
         captured["status"] = status
         captured["headers"] = headers
         return lambda _: None
@@ -72,7 +73,7 @@ def test_web_post_submission(monkeypatch: pytest.MonkeyPatch) -> None:
 
     captured: dict[str, object] = {}
 
-    def start_response(status: str, headers: list[tuple[str, str]]):
+    def start_response(status: str, headers: list[tuple[str, str]]) -> Any:
         captured["status"] = status
         captured["headers"] = headers
         return lambda _: None
@@ -106,7 +107,7 @@ def test_web_rate_limits(monkeypatch: pytest.MonkeyPatch) -> None:
 
     captured: dict[str, object] = {}
 
-    def start_response(status: str, headers: list[tuple[str, str]]):
+    def start_response(status: str, headers: list[tuple[str, str]]) -> Any:
         captured["status"] = status
         captured["headers"] = headers
         return lambda _: None
@@ -134,7 +135,7 @@ def test_web_rejects_bad_submission(monkeypatch: pytest.MonkeyPatch) -> None:
 
     captured: dict[str, object] = {}
 
-    def start_response(status: str, headers: list[tuple[str, str]]):
+    def start_response(status: str, headers: list[tuple[str, str]]) -> Any:
         captured["status"] = status
         captured["headers"] = headers
         return lambda _: None
@@ -162,7 +163,7 @@ def test_web_serves_pdf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
 
     captured: dict[str, object] = {}
 
-    def start_response(status: str, headers: list[tuple[str, str]]):
+    def start_response(status: str, headers: list[tuple[str, str]]) -> Any:
         captured["status"] = status
         captured["headers"] = headers
         return lambda _: None

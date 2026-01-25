@@ -19,7 +19,6 @@ from portal.web import (
     _extract_headers,
     _get_content_type,
     _parse_multipart,
-    _render_dashboard,
     create_app,
 )
 
@@ -321,15 +320,15 @@ class TestGetContentType:
         assert _get_content_type(".xyz") == "application/octet-stream"
 
 
-class TestRenderDashboard:
-    """Tests for dashboard HTML rendering."""
+class TestRenderTemplate:
+    """Tests for Jinja2 template rendering."""
 
-    def test_render_unauthenticated(self) -> None:
-        html = _render_dashboard(None)
+    def test_render_unauthenticated(self, app: PortalApp) -> None:
+        html = app._render_template(None)
         assert "Authentication Required" in html
         assert "Kekkai Portal" in html
 
-    def test_render_authenticated(self) -> None:
+    def test_render_authenticated(self, app: PortalApp) -> None:
         from portal.tenants import Tenant
 
         tenant = Tenant(
@@ -339,9 +338,26 @@ class TestRenderDashboard:
             dojo_product_id=1,
             dojo_engagement_id=1,
         )
-        html = _render_dashboard(tenant)
+        html = app._render_template(tenant)
         assert "Test Tenant" in html
         assert "Upload Scan Results" in html
+
+    def test_template_escapes_html(self, app: PortalApp) -> None:
+        """Test that Jinja2 autoescape prevents XSS."""
+        from portal.tenants import Tenant
+
+        tenant = Tenant(
+            id="test",
+            name="<script>alert('xss')</script>",
+            api_key_hash="h",
+            dojo_product_id=1,
+            dojo_engagement_id=1,
+        )
+        html = app._render_template(tenant)
+        # Tenant name should be escaped (not the legitimate script tags in template)
+        assert "&lt;script&gt;alert(&#39;xss&#39;)&lt;/script&gt;" in html
+        # Or at minimum, the malicious alert should not be executable
+        assert 'class="tenant-name">&lt;' in html or "alert('xss')" not in html
 
 
 class TestSecureHeaders:

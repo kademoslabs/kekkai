@@ -22,4 +22,6 @@ repos:
       - id: mypy
         additional_dependencies:
           - pytest
+          - types-Jinja2
         args: ["--config-file=pyproject.toml"]
+        files: ^(src|tests)/.*\.py$

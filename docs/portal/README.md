@@ -71,6 +71,76 @@ Returns:
 }
 ```
 
+### Get Tenant Information
+
+**New in Milestone 2**
+
+```
+GET /api/v1/tenant/info
+Authorization: Bearer <api-key>
+```
+
+Returns the authenticated tenant's metadata:
+
+```json
+{
+  "id": "your-tenant",
+  "name": "Your Organization",
+  "dojo_product_id": 1,
+  "dojo_engagement_id": 10,
+  "enabled": true,
+  "max_upload_size_mb": 10,
+  "auth_method": "api_key",
+  "default_role": "viewer"
+}
+```
+
+### List Uploads
+
+**New in Milestone 2**
+
+```
+GET /api/v1/uploads?limit=50
+Authorization: Bearer <api-key>
+```
+
+Returns a list of recent uploads for the authenticated tenant:
+
+```json
+{
+  "uploads": [
+    {
+      "upload_id": "abc123",
+      "filename": "scan.json",
+      "timestamp": "1706097600",
+      "size_bytes": 1024
+    }
+  ]
+}
+```
+
+Query Parameters:
+- `limit` (optional): Maximum number of uploads to return (default: 50, max: 100)
+
+### Get Statistics
+
+**New in Milestone 2**
+
+```
+GET /api/v1/stats
+Authorization: Bearer <api-key>
+```
+
+Returns statistics for the authenticated tenant:
+
+```json
+{
+  "total_uploads": 42,
+  "total_size_bytes": 1048576,
+  "last_upload_time": "1706097600"
+}
+```
+
 ### Dashboard
 
 ```
@@ -78,7 +148,7 @@ GET /
 Authorization: Bearer <api-key> (optional)
 ```
 
-Returns the Kekkai-themed dashboard HTML.
+Returns the Kekkai-themed dashboard HTML. If authenticated, shows upload form and tenant info. If unauthenticated, shows authentication prompt.
 
 ## Configuration
 

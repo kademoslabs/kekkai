@@ -8,7 +8,6 @@ Provides:
 
 from __future__ import annotations
 
-import html
 import json
 import logging
 import os
@@ -17,6 +16,9 @@ from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any, BinaryIO, cast
 
+from jinja2 import Environment, FileSystemLoader, select_autoescape
+
+from .api import get_tenant_info, get_tenant_stats, list_uploads
 from .auth import authenticate_request
 from .tenants import Tenant, TenantStore
 from .uploads import process_upload, validate_upload
@@ -48,6 +50,10 @@ class PortalApp:
 
     def __init__(self, tenant_store: TenantStore) -> None:
         self._tenant_store = tenant_store
+        self._jinja_env = Environment(
+            loader=FileSystemLoader(TEMPLATES_DIR),
+            autoescape=select_autoescape(["html", "xml"]),
+        )
 
     def __call__(self, environ: Environ, start_response: StartResponse) -> Iterable[bytes]:
         path = str(environ.get("PATH_INFO", "/"))
@@ -61,6 +67,15 @@ class PortalApp:
 
         if path == "/api/v1/health":
             return self._handle_health(start_response)
+
+        if path == "/api/v1/tenant/info" and method == "GET":
+            return self._handle_tenant_info(environ, start_response)
+
+        if path == "/api/v1/uploads" and method == "GET":
+            return self._handle_list_uploads(environ, start_response)
+
+        if path == "/api/v1/stats" and method == "GET":
+            return self._handle_stats(environ, start_response)
 
         if path == "/" and method == "GET":
             return self._serve_dashboard(environ, start_response)
@@ -134,6 +149,56 @@ class PortalApp:
         """Health check endpoint."""
         return self._json_response(start_response, 200, {"status": "healthy"})
 
+    def _handle_tenant_info(
+        self, environ: Environ, start_response: StartResponse
+    ) -> Iterable[bytes]:
+        """Get current tenant information."""
+        headers = _extract_headers(environ)
+        client_ip = str(environ.get("REMOTE_ADDR", "unknown"))
+
+        auth_result = authenticate_request(headers, self._tenant_store, client_ip)
+        if not auth_result.authenticated or not auth_result.tenant:
+            return self._unauthorized(start_response, auth_result.error or "Unauthorized")
+
+        tenant_info = get_tenant_info(auth_result.tenant)
+        return self._json_response(start_response, 200, tenant_info)
+
+    def _handle_list_uploads(
+        self, environ: Environ, start_response: StartResponse
+    ) -> Iterable[bytes]:
+        """List recent uploads for authenticated tenant."""
+        headers = _extract_headers(environ)
+        client_ip = str(environ.get("REMOTE_ADDR", "unknown"))
+
+        auth_result = authenticate_request(headers, self._tenant_store, client_ip)
+        if not auth_result.authenticated or not auth_result.tenant:
+            return self._unauthorized(start_response, auth_result.error or "Unauthorized")
+
+        # Parse limit parameter from query string
+        query_string = str(environ.get("QUERY_STRING", ""))
+        limit = 50
+        if "limit=" in query_string:
+            try:
+                limit_str = query_string.split("limit=")[1].split("&")[0]
+                limit = min(int(limit_str), 100)  # Cap at 100
+            except (ValueError, IndexError):
+                pass
+
+        uploads = list_uploads(auth_result.tenant, limit)
+        return self._json_response(start_response, 200, {"uploads": uploads})
+
+    def _handle_stats(self, environ: Environ, start_response: StartResponse) -> Iterable[bytes]:
+        """Get statistics for authenticated tenant."""
+        headers = _extract_headers(environ)
+        client_ip = str(environ.get("REMOTE_ADDR", "unknown"))
+
+        auth_result = authenticate_request(headers, self._tenant_store, client_ip)
+        if not auth_result.authenticated or not auth_result.tenant:
+            return self._unauthorized(start_response, auth_result.error or "Unauthorized")
+
+        stats = get_tenant_stats(auth_result.tenant)
+        return self._json_response(start_response, 200, stats)
+
     def _serve_dashboard(self, environ: Environ, start_response: StartResponse) -> Iterable[bytes]:
         """Serve the Kekkai-themed dashboard."""
         headers = _extract_headers(environ)
@@ -142,10 +207,19 @@ class PortalApp:
         auth_result = authenticate_request(headers, self._tenant_store, client_ip)
         tenant = auth_result.tenant if auth_result.authenticated else None
 
-        content = _render_dashboard(tenant)
+        content = self._render_template(tenant)
         response_headers = [("Content-Type", "text/html; charset=utf-8")] + SECURE_HEADERS
         start_response("200 OK", response_headers)
         return [content.encode("utf-8")]
+
+    def _render_template(self, tenant: Tenant | None) -> str:
+        """Render dashboard or login template based on authentication."""
+        if tenant:
+            template = self._jinja_env.get_template("dashboard.html")
+            return str(template.render(tenant=tenant.to_dict()))
+        else:
+            template = self._jinja_env.get_template("login.html")
+            return str(template.render())
 
     def _serve_static(self, path: str, start_response: StartResponse) -> Iterable[bytes]:
         """Serve static assets with security checks."""
@@ -308,99 +382,3 @@ def _get_content_type(extension: str) -> str:
         ".woff2": "font/woff2",
     }
     return types.get(extension.lower(), "application/octet-stream")
-
-
-def _render_dashboard(tenant: Tenant | None) -> str:
-    """Render the Kekkai-themed dashboard."""
-    if tenant:
-        tenant_info = f"""
-        <div class="tenant-info">
-            <span class="tenant-name">{html.escape(tenant.name)}</span>
-            <span class="tenant-id">ID: {html.escape(tenant.id)}</span>
-        </div>
-        """
-        upload_section = """
-        <section class="upload-section">
-            <h2>Upload Scan Results</h2>
-            <form id="upload-form" enctype="multipart/form-data">
-                <div class="form-group">
-                    <label for="file">Select JSON/SARIF file:</label>
-                    <input type="file" id="file" name="file" accept=".json,.sarif" required>
-                </div>
-                <button type="submit" class="btn-primary">Upload</button>
-            </form>
-            <div id="upload-status"></div>
-        </section>
-        """
-    else:
-        tenant_info = ""
-        upload_section = """
-        <section class="auth-section">
-            <h2>Authentication Required</h2>
-            <p>Please provide your API key to access the dashboard.</p>
-            <p>Use the <code>Authorization: Bearer &lt;api-key&gt;</code> header.</p>
-        </section>
-        """
-
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kekkai Portal</title>
-    <link rel="stylesheet" href="/static/kekkai.css">
-</head>
-<body>
-    <header class="header">
-        <div class="logo">
-            <img src="/static/kekkai-logo.png" alt="Kekkai" class="logo-img">
-            <span class="logo-text">Kekkai Portal</span>
-        </div>
-        {tenant_info}
-    </header>
-    <main class="main">
-        <section class="hero">
-            <h1>Security that moves at developer speed.</h1>
-            <p>Upload and manage your security scan results in one place.</p>
-        </section>
-        {upload_section}
-    </main>
-    <footer class="footer">
-        <p>&copy; 2024 Kademos Labs. All rights reserved.</p>
-    </footer>
-    <script>
-        document.getElementById('upload-form')?.addEventListener('submit', async (e) => {{
-            e.preventDefault();
-            const fileInput = document.getElementById('file');
-            const status = document.getElementById('upload-status');
-            const file = fileInput.files[0];
-            if (!file) return;
-
-            const formData = new FormData();
-            formData.append('file', file);
-
-            status.textContent = 'Uploading...';
-            status.className = 'status-pending';
-
-            try {{
-                const response = await fetch('/api/v1/upload', {{
-                    method: 'POST',
-                    body: formData,
-                    credentials: 'same-origin'
-                }});
-                const data = await response.json();
-                if (data.success) {{
-                    status.textContent = `Upload successful! ID: ${{data.upload_id}}`;
-                    status.className = 'status-success';
-                }} else {{
-                    status.textContent = `Error: ${{data.error}}`;
-                    status.className = 'status-error';
-                }}
-            }} catch (err) {{
-                status.textContent = 'Upload failed. Please try again.';
-                status.className = 'status-error';
-            }}
-        }});
-    </script>
-</body>
-</html>"""

@@ -307,3 +307,121 @@ class TestTenantDataContract:
             assert "tenants" in data
             assert isinstance(data["tenants"], dict)
             assert "test" in data["tenants"]
+
+
+@pytest.mark.regression
+class TestTenantInfoApiContract:
+    """Regression tests for /api/v1/tenant/info endpoint."""
+
+    def test_tenant_info_response_schema(self) -> None:
+        """Tenant info endpoint returns expected schema."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store_path = Path(tmpdir) / "tenants.json"
+            store = TenantStore(store_path)
+            _, api_key = store.create("test", "Test Org", 1, 10)
+            app = PortalApp(store)
+
+            environ = make_environ(
+                "GET",
+                "/api/v1/tenant/info",
+                headers={"Authorization": f"Bearer {api_key}"},
+            )
+            start_response = MockStartResponse()
+            response = list(app(environ, start_response))
+
+            assert "200" in start_response.status
+            data = json.loads(response[0])
+
+            # Required fields
+            required_keys = {
+                "id",
+                "name",
+                "dojo_product_id",
+                "dojo_engagement_id",
+                "enabled",
+                "max_upload_size_mb",
+                "auth_method",
+                "default_role",
+            }
+            assert required_keys.issubset(set(data.keys()))
+
+    def test_tenant_info_requires_auth(self, app: PortalApp) -> None:
+        """Tenant info endpoint requires authentication."""
+        environ = make_environ("GET", "/api/v1/tenant/info")
+        start_response = MockStartResponse()
+        response = list(app(environ, start_response))
+
+        assert "401" in start_response.status
+        data = json.loads(response[0])
+        assert data.get("success") is False
+
+
+@pytest.mark.regression
+class TestUploadsApiContract:
+    """Regression tests for /api/v1/uploads endpoint."""
+
+    def test_uploads_response_schema(self) -> None:
+        """Uploads list endpoint returns expected schema."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store_path = Path(tmpdir) / "tenants.json"
+            store = TenantStore(store_path)
+            _, api_key = store.create("test", "Test Org", 1, 10)
+            app = PortalApp(store)
+
+            environ = make_environ(
+                "GET",
+                "/api/v1/uploads",
+                headers={"Authorization": f"Bearer {api_key}"},
+            )
+            start_response = MockStartResponse()
+            response = list(app(environ, start_response))
+
+            assert "200" in start_response.status
+            data = json.loads(response[0])
+
+            assert "uploads" in data
+            assert isinstance(data["uploads"], list)
+
+    def test_uploads_requires_auth(self, app: PortalApp) -> None:
+        """Uploads list endpoint requires authentication."""
+        environ = make_environ("GET", "/api/v1/uploads")
+        start_response = MockStartResponse()
+        list(app(environ, start_response))
+
+        assert "401" in start_response.status
+
+
+@pytest.mark.regression
+class TestStatsApiContract:
+    """Regression tests for /api/v1/stats endpoint."""
+
+    def test_stats_response_schema(self) -> None:
+        """Stats endpoint returns expected schema."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store_path = Path(tmpdir) / "tenants.json"
+            store = TenantStore(store_path)
+            _, api_key = store.create("test", "Test Org", 1, 10)
+            app = PortalApp(store)
+
+            environ = make_environ(
+                "GET",
+                "/api/v1/stats",
+                headers={"Authorization": f"Bearer {api_key}"},
+            )
+            start_response = MockStartResponse()
+            response = list(app(environ, start_response))
+
+            assert "200" in start_response.status
+            data = json.loads(response[0])
+
+            # Required fields
+            required_keys = {"total_uploads", "total_size_bytes", "last_upload_time"}
+            assert set(data.keys()) == required_keys
+
+    def test_stats_requires_auth(self, app: PortalApp) -> None:
+        """Stats endpoint requires authentication."""
+        environ = make_environ("GET", "/api/v1/stats")
+        start_response = MockStartResponse()
+        list(app(environ, start_response))
+
+        assert "401" in start_response.status

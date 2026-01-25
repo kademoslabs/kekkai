@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import ipaddress
+from typing import Any
+from unittest.mock import patch
 
 import pytest
 
-import regulon.urls as urls
+import regulon.urls
 from regulon.urls import FetchError, UrlPolicyError, safe_fetch
 
 
@@ -28,8 +30,13 @@ class FakeResponse:
     def __enter__(self) -> FakeResponse:
         return self
 
-    def __exit__(self, exc_type, exc, tb) -> bool:
-        return False
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any,
+    ) -> None:
+        pass
 
 
 class FakeOpener:
@@ -42,7 +49,7 @@ class FakeOpener:
 
 def _patch_public_resolution(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        urls,
+        regulon.urls,
         "_resolve_host",
         lambda _: [ipaddress.ip_address("93.184.216.34")],
     )
@@ -56,26 +63,27 @@ def test_safe_fetch_follows_redirect(monkeypatch: pytest.MonkeyPatch) -> None:
             FakeResponse(200, b"ok"),
         ]
     )
-    monkeypatch.setattr(urls.urllib.request, "build_opener", lambda *args, **kwargs: opener)
-
-    result = safe_fetch("https://example.com/start", max_redirects=2)
-    assert result.status_code == 200
-    assert result.body == b"ok"
+    with patch.object(regulon.urls.urllib.request, "build_opener", return_value=opener):  # type: ignore[attr-defined]
+        result = safe_fetch("https://example.com/start", max_redirects=2)
+        assert result.status_code == 200
+        assert result.body == b"ok"
 
 
 def test_safe_fetch_rejects_missing_location(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_public_resolution(monkeypatch)
     opener = FakeOpener([FakeResponse(302, b"", {})])
-    monkeypatch.setattr(urls.urllib.request, "build_opener", lambda *args, **kwargs: opener)
-
-    with pytest.raises(UrlPolicyError):
+    with (
+        patch.object(regulon.urls.urllib.request, "build_opener", return_value=opener),  # type: ignore[attr-defined]
+        pytest.raises(UrlPolicyError),
+    ):
         safe_fetch("https://example.com/start", max_redirects=1)
 
 
 def test_safe_fetch_rejects_large_response(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_public_resolution(monkeypatch)
     opener = FakeOpener([FakeResponse(200, b"too-large")])
-    monkeypatch.setattr(urls.urllib.request, "build_opener", lambda *args, **kwargs: opener)
-
-    with pytest.raises(FetchError):
+    with (
+        patch.object(regulon.urls.urllib.request, "build_opener", return_value=opener),  # type: ignore[attr-defined]
+        pytest.raises(FetchError),
+    ):
         safe_fetch("https://example.com/start", max_bytes=1)

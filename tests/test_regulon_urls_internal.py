@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import ipaddress
 import socket
+from typing import Any
 
 import pytest
 
-import regulon.urls as urls
+import regulon.urls
 from regulon.urls import UrlPolicyError, validate_url
 
 
@@ -25,27 +26,27 @@ def test_validate_url_blocks_local_domain() -> None:
 
 
 def test_handle_redirect_too_many(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(urls, "validate_url", lambda value: value)
+    monkeypatch.setattr(regulon.urls, "validate_url", lambda value: value)
     with pytest.raises(UrlPolicyError):
-        urls._handle_redirect("https://example.com", "https://example.com", 0, 0)
+        regulon.urls._handle_redirect("https://example.com", "https://example.com", 0, 0)
 
 
 def test_resolve_host_parses_addresses(monkeypatch: pytest.MonkeyPatch) -> None:
-    def fake_getaddrinfo(host: str, port: int | None):
+    def fake_getaddrinfo(host: str, port: int | None) -> list[Any]:
         return [
             (socket.AF_INET, None, None, None, ("93.184.216.34", 0)),
             (socket.AF_INET6, None, None, None, ("2001:db8::1", 0, 0, 0)),
         ]
 
-    monkeypatch.setattr(urls.socket, "getaddrinfo", fake_getaddrinfo)
-    resolved = urls._resolve_host("example.com")
+    monkeypatch.setattr(regulon.urls.socket, "getaddrinfo", fake_getaddrinfo)  # type: ignore[attr-defined]
+    resolved = regulon.urls._resolve_host("example.com")
     assert ipaddress.ip_address("93.184.216.34") in resolved
     assert ipaddress.ip_address("2001:db8::1") in resolved
 
 
 def test_resolve_host_handles_failure(monkeypatch: pytest.MonkeyPatch) -> None:
-    def fake_getaddrinfo(host: str, port: int | None):
+    def fake_getaddrinfo(host: str, port: int | None) -> None:
         raise socket.gaierror("fail")
 
-    monkeypatch.setattr(urls.socket, "getaddrinfo", fake_getaddrinfo)
-    assert urls._resolve_host("example.com") == []
+    monkeypatch.setattr(regulon.urls.socket, "getaddrinfo", fake_getaddrinfo)  # type: ignore[attr-defined]
+    assert regulon.urls._resolve_host("example.com") == []

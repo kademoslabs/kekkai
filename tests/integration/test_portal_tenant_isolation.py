@@ -7,6 +7,7 @@ negative tests for cross-tenant access prevention.
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 from collections.abc import Generator
 from io import BytesIO
@@ -309,6 +310,154 @@ class TestWebAppTenantIsolation:
                 data = json.loads(response[0])
                 assert data.get("dojo_product_id") == 100
                 assert data.get("tenant_id") == "tenant_alpha"
+        finally:
+            if old_dir:
+                os.environ["PORTAL_UPLOAD_DIR"] = old_dir
+            elif "PORTAL_UPLOAD_DIR" in os.environ:
+                del os.environ["PORTAL_UPLOAD_DIR"]
+
+
+@pytest.mark.integration
+class TestTenantApiIsolation:
+    """Integration tests for tenant isolation in API endpoints."""
+
+    def test_tenant_info_api_returns_only_own_tenant(
+        self,
+        test_env: tuple[TenantStore, Tenant, str, Tenant, str, Path],
+    ) -> None:
+        """Tenant info API returns only the authenticated tenant's data."""
+        store, tenant_a, key_a, tenant_b, key_b, _ = test_env
+        app = PortalApp(store)
+
+        # Tenant A gets their info
+        environ_a = make_environ(
+            "GET",
+            "/api/v1/tenant/info",
+            headers={"Authorization": f"Bearer {key_a}"},
+        )
+        start_response_a = MockStartResponse()
+        response_a = list(app(environ_a, start_response_a))
+
+        assert "200" in start_response_a.status
+        data_a = json.loads(response_a[0])
+        assert data_a["id"] == "tenant_alpha"
+        assert data_a["name"] == "Alpha Corp"
+        assert data_a["dojo_product_id"] == 100
+
+        # Tenant B gets their info
+        environ_b = make_environ(
+            "GET",
+            "/api/v1/tenant/info",
+            headers={"Authorization": f"Bearer {key_b}"},
+        )
+        start_response_b = MockStartResponse()
+        response_b = list(app(environ_b, start_response_b))
+
+        assert "200" in start_response_b.status
+        data_b = json.loads(response_b[0])
+        assert data_b["id"] == "tenant_beta"
+        assert data_b["name"] == "Beta Inc"
+        assert data_b["dojo_product_id"] == 200
+
+    def test_uploads_list_api_enforces_tenant_isolation(
+        self,
+        test_env: tuple[TenantStore, Tenant, str, Tenant, str, Path],
+    ) -> None:
+        """Uploads list API only returns the authenticated tenant's uploads."""
+        store, tenant_a, key_a, tenant_b, key_b, upload_dir = test_env
+
+        old_dir = os.environ.get("PORTAL_UPLOAD_DIR")
+        os.environ["PORTAL_UPLOAD_DIR"] = str(upload_dir)
+
+        try:
+            # Create uploads for both tenants
+            (upload_dir / "tenant_alpha").mkdir(exist_ok=True)
+            (upload_dir / "tenant_beta").mkdir(exist_ok=True)
+            (upload_dir / "tenant_alpha" / "upload1.json").write_text("{}")
+            (upload_dir / "tenant_beta" / "upload2.json").write_text("{}")
+
+            app = PortalApp(store)
+
+            # Tenant A lists uploads
+            environ_a = make_environ(
+                "GET",
+                "/api/v1/uploads",
+                headers={"Authorization": f"Bearer {key_a}"},
+            )
+            start_response_a = MockStartResponse()
+            response_a = list(app(environ_a, start_response_a))
+
+            assert "200" in start_response_a.status
+            data_a = json.loads(response_a[0])
+            assert len(data_a["uploads"]) == 1
+            assert data_a["uploads"][0]["filename"] == "upload1.json"
+
+            # Tenant B lists uploads
+            environ_b = make_environ(
+                "GET",
+                "/api/v1/uploads",
+                headers={"Authorization": f"Bearer {key_b}"},
+            )
+            start_response_b = MockStartResponse()
+            response_b = list(app(environ_b, start_response_b))
+
+            assert "200" in start_response_b.status
+            data_b = json.loads(response_b[0])
+            assert len(data_b["uploads"]) == 1
+            assert data_b["uploads"][0]["filename"] == "upload2.json"
+
+        finally:
+            if old_dir:
+                os.environ["PORTAL_UPLOAD_DIR"] = old_dir
+            elif "PORTAL_UPLOAD_DIR" in os.environ:
+                del os.environ["PORTAL_UPLOAD_DIR"]
+
+    def test_stats_api_enforces_tenant_isolation(
+        self,
+        test_env: tuple[TenantStore, Tenant, str, Tenant, str, Path],
+    ) -> None:
+        """Stats API only returns the authenticated tenant's statistics."""
+        store, tenant_a, key_a, tenant_b, key_b, upload_dir = test_env
+
+        old_dir = os.environ.get("PORTAL_UPLOAD_DIR")
+        os.environ["PORTAL_UPLOAD_DIR"] = str(upload_dir)
+
+        try:
+            # Create uploads for both tenants
+            (upload_dir / "tenant_alpha").mkdir(exist_ok=True)
+            (upload_dir / "tenant_beta").mkdir(exist_ok=True)
+            (upload_dir / "tenant_alpha" / "upload1.json").write_text("{}")
+            (upload_dir / "tenant_beta" / "upload2.json").write_text("{}")
+            (upload_dir / "tenant_beta" / "upload3.json").write_text("{}")
+
+            app = PortalApp(store)
+
+            # Tenant A stats
+            environ_a = make_environ(
+                "GET",
+                "/api/v1/stats",
+                headers={"Authorization": f"Bearer {key_a}"},
+            )
+            start_response_a = MockStartResponse()
+            response_a = list(app(environ_a, start_response_a))
+
+            assert "200" in start_response_a.status
+            data_a = json.loads(response_a[0])
+            assert data_a["total_uploads"] == 1
+
+            # Tenant B stats
+            environ_b = make_environ(
+                "GET",
+                "/api/v1/stats",
+                headers={"Authorization": f"Bearer {key_b}"},
+            )
+            start_response_b = MockStartResponse()
+            response_b = list(app(environ_b, start_response_b))
+
+            assert "200" in start_response_b.status
+            data_b = json.loads(response_b[0])
+            assert data_b["total_uploads"] == 2
+
         finally:
             if old_dir:
                 os.environ["PORTAL_UPLOAD_DIR"] = old_dir
