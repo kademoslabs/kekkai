@@ -23,12 +23,39 @@ Stop fighting with Docker Compose. Start scanning in 30 seconds.
 
 ### Installation
 
+**Option 1: pipx (Recommended - Isolated Environment)**
+
+```bash
+pipx install kekkai
+```
+
+**Option 2: Homebrew (macOS/Linux)**
+
+```bash
+brew tap kademoslabs/tap
+brew install kekkai
+```
+
+**Option 3: Docker (No Python Required)**
+
+```bash
+# Build image
+docker build -t kademoslabs/kekkai:latest -f apps/kekkai/Dockerfile .
+
+# Run via wrapper script
+./scripts/kekkai-docker --help
+
+# Or set up alias
+alias kekkai="$(pwd)/scripts/kekkai-docker"
+```
+
+**Option 4: pip (Traditional)**
+
 ```bash
 pip install kekkai
-# Or use our upcoming Homebrew tap (Coming Soon in v1.1)
-# brew install kademoslabs/tap/kekkai
-
 ```
+
+
 
 ### 1. Scan your project (Local)
 

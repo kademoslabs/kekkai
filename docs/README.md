@@ -46,10 +46,37 @@ Production-ready operations for backup, monitoring, and upgrades.
 
 New to Kekkai? Start here:
 
-1. Read the [main README](../README.md) for project overview
-2. Follow the [Dojo Quick Start](dojo/dojo-quickstart.md) to run DefectDojo locally
-3. Check the [Dojo Guide](dojo/dojo.md) for advanced usage
-4. Set up CI with the [CI Mode Guide](ci-mode.md)
+1. **Install Kekkai** - Choose your installation method below
+2. Read the [main README](../README.md) for project overview
+3. Follow the [Dojo Quick Start](dojo/dojo-quickstart.md) to run DefectDojo locally
+4. Check the [Dojo Guide](dojo/dojo.md) for advanced usage
+5. Set up CI with the [CI Mode Guide](ci/ci-mode.md)
+
+---
+
+## Installation Methods
+
+Kekkai supports multiple installation methods to fit your workflow:
+
+| Method | Best For | Command |
+|--------|----------|---------|
+| **pipx** | Isolated Python environments, recommended for local development | `pipx install kekkai` |
+| **Homebrew** | macOS/Linux users who prefer native package managers | `brew install kademoslabs/tap/kekkai` |
+| **Docker** | CI/CD pipelines, no local Python installation required | `./scripts/kekkai-docker --help` |
+| **pip** | Traditional Python environments | `pip install kekkai` |
+
+### Detailed Installation Guides
+
+- **pipx**: See [main README](../README.md#installation) for quick setup
+- **Docker**: See [Docker Usage Guide](ci/docker-usage.md) for security model and CI integration
+- **Homebrew**: See [Homebrew Maintenance](ci/homebrew-maintenance.md) for tap details
+
+### Which Method Should I Use?
+
+- **For local development**: Use **pipx** for isolated, clean environments
+- **For macOS/Linux systems**: Use **Homebrew** for native package management
+- **For CI/CD**: Use **Docker** for reproducible, sandboxed execution
+- **For traditional Python projects**: Use **pip** if managing dependencies manually
 
 ---
 

@@ -1,0 +1,35 @@
+#!/bin/bash
+# Hardened Docker wrapper for kekkai CLI
+# This wrapper runs kekkai in a security-hardened container with:
+#   - Read-only filesystem (except tmpfs for /tmp)
+#   - Non-root user execution
+#   - All capabilities dropped
+#   - No privilege escalation
+#   - Repository mounted read-only
+#
+# Usage:
+#   ./scripts/kekkai-docker --help
+#   ./scripts/kekkai-docker scan --repo /workspace
+#
+# Set alias for convenience:
+#   alias kekkai="$(pwd)/scripts/kekkai-docker"
+
+set -euo pipefail
+
+# Build image if it doesn't exist
+if ! docker image inspect kademoslabs/kekkai:latest >/dev/null 2>&1; then
+    echo "Building kekkai Docker image..." >&2
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+    docker build -t kademoslabs/kekkai:latest -f "$PROJECT_ROOT/apps/kekkai/Dockerfile" "$PROJECT_ROOT"
+fi
+
+# Run kekkai in hardened container
+docker run --rm -i \
+  --read-only \
+  --tmpfs /tmp:rw,noexec,nosuid,size=100m \
+  --security-opt=no-new-privileges:true \
+  --cap-drop=ALL \
+  -v "$(pwd):/workspace:ro" \
+  -w /workspace \
+  kademoslabs/kekkai:latest "$@"

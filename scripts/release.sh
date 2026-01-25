@@ -64,6 +64,15 @@ python3 -m build
 echo "Generating SBOM..."
 pip freeze --exclude-editable > dist/requirements-frozen.txt
 
+# Generate sha256 checksums for Homebrew formula
+echo ""
+echo "Generating checksums for Homebrew formula..."
+for file in dist/*.tar.gz; do
+    if [ -f "$file" ]; then
+        sha256sum "$file" | tee -a dist/checksums.txt
+    fi
+done
+
 # List artifacts
 echo ""
 echo "Release artifacts:"

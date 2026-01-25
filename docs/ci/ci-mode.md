@@ -115,6 +115,48 @@ security-scan:
     command: kekkai scan --ci --scanners trivy,semgrep,gitleaks
 ```
 
+### Docker in CI (No Python Installation Required)
+
+For environments without Python, use the Docker wrapper:
+
+**GitHub Actions:**
+```yaml
+- name: Build Kekkai Image
+  run: docker build -t kademoslabs/kekkai:latest -f apps/kekkai/Dockerfile .
+
+- name: Security Scan
+  run: |
+    docker run --rm -v "$PWD:/workspace:ro" -w /workspace \
+      kademoslabs/kekkai:latest scan --repo /workspace --ci
+```
+
+**GitLab CI:**
+```yaml
+security-scan:
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker build -t kademoslabs/kekkai:latest -f apps/kekkai/Dockerfile .
+    - docker run --rm -v "$CI_PROJECT_DIR:/workspace:ro" -w /workspace
+        kademoslabs/kekkai:latest scan --repo /workspace --ci
+```
+
+**CircleCI:**
+```yaml
+- setup_remote_docker
+- run:
+    name: Build Kekkai Image
+    command: docker build -t kademoslabs/kekkai:latest -f apps/kekkai/Dockerfile .
+- run:
+    name: Security Scan
+    command: |
+      docker run --rm -v "$PWD:/workspace:ro" -w /workspace \
+        kademoslabs/kekkai:latest scan --repo /workspace --ci
+```
+
+See [Docker Usage Guide](docker-usage.md) for security model and advanced usage.
+
 ## Best Practices
 
 1. **Start strict, loosen if needed** - Begin with `--ci` (critical/high only)

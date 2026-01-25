@@ -17,6 +17,11 @@ jobs:
           command: |
             . .venv/bin/activate
             make ci-quick
+      - run:
+          name: pipx install test
+          command: |
+            . .venv/bin/activate
+            make pipx-test
 
   test_full:
     docker:
@@ -45,6 +50,7 @@ jobs:
       - image: cimg/python:3.12
     steps:
       - checkout
+      - setup_remote_docker
       - run:
           name: Install tooling
           command: |
@@ -52,10 +58,18 @@ jobs:
             . .venv/bin/activate
             make setup
       - run:
-          name: Build release artifacts
+          name: Build release artifacts with checksums
           command: |
             . .venv/bin/activate
             make release
+      - run:
+          name: Build Docker image
+          command: |
+            make docker-image
+      - run:
+          name: Test Docker wrapper
+          command: |
+            make docker-test
       - store_artifacts:
           path: dist
           destination: release-artifacts
