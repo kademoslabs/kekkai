@@ -73,3 +73,8 @@ tmp/
 # This folder contains distribution repositories (homebrew-tap, scoop-bucket, etc.)
 # that will be moved to separate GitHub repositories
 SEPARATE/
+
+# ---- SEP-REGULON folder (extracted Regulon project) ----
+# Regulon has been extracted to its own repository
+# This folder contains the extracted code (untracked)
+SEP-REGULON/

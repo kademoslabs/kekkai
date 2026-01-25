@@ -2,10 +2,15 @@ from __future__ import annotations
 
 import json
 import platform
-import shutil
 from pathlib import Path
 from typing import Any
 
+from .backends import (
+    BackendType,
+    ToolNotFoundError,
+    ToolVersionError,
+    detect_tool,
+)
 from .base import Finding, ScanContext, ScanResult, Severity
 
 SCAN_TYPE = "Falco Scan"
@@ -25,6 +30,9 @@ class FalcoScanner:
     - Falco requires kernel access (eBPF or kernel module)
     - Should only be used in controlled environments
     - Requires elevated privileges on the host
+
+    Note: Falco only runs in native mode (no Docker container support)
+    as it requires direct kernel access.
     """
 
     def __init__(
@@ -32,10 +40,13 @@ class FalcoScanner:
         enabled: bool = False,
         rules_file: Path | None = None,
         timeout_seconds: int = 300,
+        backend: BackendType | None = None,
     ) -> None:
         self._enabled = enabled
         self._rules_file = rules_file
         self._timeout = timeout_seconds
+        self._backend = backend
+        self._resolved_backend: BackendType | None = None
 
     @property
     def name(self) -> str:
@@ -45,26 +56,30 @@ class FalcoScanner:
     def scan_type(self) -> str:
         return SCAN_TYPE
 
+    @property
+    def backend_used(self) -> BackendType | None:
+        """Return the backend used for the last scan."""
+        return self._resolved_backend
+
     def is_available(self) -> tuple[bool, str]:
         """Check if Falco is available and can be run.
 
         Returns:
             Tuple of (available, reason)
         """
-        # Check platform
         if platform.system() != "Linux":
             return False, "Falco is Linux-only (experimental)"
 
-        # Check if enabled
         if not self._enabled:
             return False, "Falco requires explicit --enable-falco flag"
 
-        # Check if falco binary exists
-        falco_path = shutil.which("falco")
-        if not falco_path:
+        try:
+            detect_tool("falco", min_version=(0, 35, 0))
+            return True, "Falco available"
+        except ToolNotFoundError:
             return False, "Falco binary not found in PATH"
-
-        return True, "Falco available"
+        except ToolVersionError as e:
+            return False, str(e)
 
     def run(self, ctx: ScanContext) -> ScanResult:
         """Run Falco scanner.
@@ -72,7 +87,11 @@ class FalcoScanner:
         Note: Falco is designed for continuous monitoring. This adapter
         runs Falco in a one-shot mode to analyze existing log files or
         capture events for a limited duration.
+
+        Falco always runs in native mode (requires kernel access).
         """
+        self._resolved_backend = BackendType.NATIVE
+
         available, reason = self.is_available()
         if not available:
             return ScanResult(
@@ -83,8 +102,6 @@ class FalcoScanner:
                 duration_ms=0,
             )
 
-        # Look for existing Falco alerts file (for offline analysis)
-        # In a real deployment, Falco would run as a daemon
         existing_alerts = self._find_alerts_file(ctx)
         if existing_alerts:
             try:
@@ -105,8 +122,6 @@ class FalcoScanner:
                     duration_ms=0,
                 )
 
-        # No existing alerts - return empty result with info message
-        # Real Falco integration would run falco daemon
         return ScanResult(
             scanner=self.name,
             success=True,

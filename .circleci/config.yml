@@ -18,6 +18,11 @@ jobs:
             . .venv/bin/activate
             make ci-quick
       - run:
+          name: Native mode tests
+          command: |
+            . .venv/bin/activate
+            make native-test
+      - run:
           name: pipx install test
           command: |
             . .venv/bin/activate

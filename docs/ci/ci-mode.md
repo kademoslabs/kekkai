@@ -157,6 +157,66 @@ security-scan:
 
 See [Docker Usage Guide](docker-usage.md) for security model and advanced usage.
 
+## Native Mode (No Docker Required)
+
+Kekkai supports running scanners natively when Docker is unavailable. This is useful for:
+
+- CI environments with restricted Docker access
+- Local development without Docker Desktop
+- Minimal container environments
+
+### How It Works
+
+Scanners automatically select the execution backend:
+1. **Docker (preferred)**: If Docker is available and running
+2. **Native (fallback)**: If Docker is unavailable but the scanner binary is in PATH
+
+### Supported Scanners (Native Mode)
+
+| Scanner | Minimum Version | Notes |
+|---------|-----------------|-------|
+| Trivy | 0.40.0+ | Requires network for vulnerability database |
+| Semgrep | 1.50.0+ | Requires network for rule registry |
+| Gitleaks | 8.18.0+ | No network required |
+| ZAP | 0.10.0+ (zap-cli) | Requires running ZAP daemon |
+| Falco | 0.35.0+ | Linux only, requires kernel access |
+
+### Installation (Native Scanners)
+
+```bash
+# Trivy
+curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+# Semgrep
+pip install semgrep
+
+# Gitleaks
+brew install gitleaks  # or download from GitHub releases
+```
+
+### Security Considerations
+
+Native mode includes these safeguards:
+
+- **Tool verification**: Validates binary path and version before execution
+- **Version enforcement**: Rejects tools below minimum required version
+- **Argument safety**: Uses list-based subprocess arguments (no shell expansion)
+- **Environment isolation**: Restricts environment variables passed to tools
+
+### Explicit Backend Selection
+
+Force a specific backend (useful for testing):
+
+```python
+from kekkai.scanners import TrivyScanner, BackendType
+
+# Force native mode
+scanner = TrivyScanner(backend=BackendType.NATIVE)
+
+# Force Docker mode
+scanner = TrivyScanner(backend=BackendType.DOCKER)
+```
+
 ## Best Practices
 
 1. **Start strict, loosen if needed** - Begin with `--ci` (critical/high only)

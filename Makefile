@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 PY := python3
 
-.PHONY: setup fmt lint test unit integration regression sec ci ci-quick build sbom release clean pipx-test docker-image docker-test brew-test
+.PHONY: setup fmt lint test unit integration regression sec ci ci-quick build sbom release clean pipx-test docker-image docker-test brew-test native-test
 
 setup:
 	python3 -m pip install -U pip wheel
@@ -74,6 +74,11 @@ brew-test: ## Smoke test formula locally (macOS only)
 	else \
 		echo "Homebrew not installed, skipping brew-test"; \
 	fi
+
+native-test: ## Test native mode scanner backends
+	pytest tests/test_scanner_backends.py tests/test_scanner_native.py -v
+	pytest -m "integration" tests/integration/test_kekkai_native_mode.py -v
+	pytest -m "regression" tests/regression/test_native_command_manifest.py -v
 
 clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage coverage.xml dist build *.egg-info src/*.egg-info

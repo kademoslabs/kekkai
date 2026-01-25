@@ -1,3 +1,13 @@
+from .backends import (
+    BackendType,
+    DockerBackend,
+    NativeBackend,
+    ScannerBackend,
+    ToolNotFoundError,
+    ToolVersionError,
+    detect_tool,
+    docker_available,
+)
 from .base import (
     Finding,
     ScanContext,
@@ -28,19 +38,27 @@ OPTIONAL_SCANNERS: dict[str, type] = {
 }
 
 __all__ = [
+    "BackendType",
     "create_falco_scanner",
     "create_zap_scanner",
     "dedupe_findings",
+    "detect_tool",
+    "docker_available",
+    "DockerBackend",
     "FalcoScanner",
     "Finding",
     "GitleaksScanner",
+    "NativeBackend",
     "OPTIONAL_SCANNERS",
     "ScanContext",
+    "ScannerBackend",
     "ScanResult",
     "Scanner",
     "SCANNER_REGISTRY",
     "SemgrepScanner",
     "Severity",
+    "ToolNotFoundError",
+    "ToolVersionError",
     "TrivyScanner",
     "UrlPolicy",
     "UrlPolicyError",

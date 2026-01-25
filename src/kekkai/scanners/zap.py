@@ -1,8 +1,17 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
+from .backends import (
+    BackendType,
+    NativeBackend,
+    ToolNotFoundError,
+    ToolVersionError,
+    detect_tool,
+    docker_available,
+)
 from .base import Finding, ScanContext, ScanResult, Severity
 from .container import ContainerConfig, run_container
 from .url_policy import UrlPolicy, UrlPolicyError, validate_target_url
@@ -17,6 +26,10 @@ class ZapScanner:
 
     DAST scanner that requires explicit target URL and enforces URL policy.
     By default, blocks scanning of private/internal networks (SSRF protection).
+
+    Native mode support (opt-in):
+    - Requires zap-cli or zap.sh to be installed and in PATH
+    - URL policy enforcement is still applied
     """
 
     def __init__(
@@ -26,6 +39,7 @@ class ZapScanner:
         image: str = ZAP_IMAGE,
         digest: str | None = ZAP_DIGEST,
         timeout_seconds: int = 900,
+        backend: BackendType | None = None,
     ) -> None:
         self._target_url = target_url
         self._policy = policy or UrlPolicy()
@@ -33,6 +47,8 @@ class ZapScanner:
         self._digest = digest
         self._timeout = timeout_seconds
         self._validated_url: str | None = None
+        self._backend = backend
+        self._resolved_backend: BackendType | None = None
 
     @property
     def name(self) -> str:
@@ -41,6 +57,26 @@ class ZapScanner:
     @property
     def scan_type(self) -> str:
         return SCAN_TYPE
+
+    @property
+    def backend_used(self) -> BackendType | None:
+        """Return the backend used for the last scan."""
+        return self._resolved_backend
+
+    def _select_backend(self) -> BackendType:
+        """Select backend: explicit choice, or auto-detect (Docker preferred for ZAP)."""
+        if self._backend is not None:
+            return self._backend
+
+        available, _ = docker_available()
+        if available:
+            return BackendType.DOCKER
+
+        try:
+            detect_tool("zap-cli", min_version=(0, 10, 0))
+            return BackendType.NATIVE
+        except (ToolNotFoundError, ToolVersionError):
+            return BackendType.DOCKER
 
     def validate_target(self) -> str:
         """Validate and return the target URL.
@@ -54,6 +90,14 @@ class ZapScanner:
         return self._validated_url
 
     def run(self, ctx: ScanContext) -> ScanResult:
+        backend = self._select_backend()
+        self._resolved_backend = backend
+
+        if backend == BackendType.NATIVE:
+            return self._run_native(ctx)
+        return self._run_docker(ctx)
+
+    def _run_docker(self, ctx: ScanContext) -> ScanResult:
         # Validate target URL before running
         try:
             validated_url = self.validate_target()
@@ -100,20 +144,80 @@ class ZapScanner:
             user=None,  # ZAP container has its own user setup
         )
 
-        if result.timed_out:
+        return self._process_result(
+            result.timed_out, result.duration_ms, result.stderr, ctx.output_dir
+        )
+
+    def _run_native(self, ctx: ScanContext) -> ScanResult:
+        """Run ZAP natively using zap-cli.
+
+        Note: Native ZAP execution requires zap-cli and a running ZAP daemon.
+        This is primarily for environments where Docker is not available.
+        """
+        try:
+            validated_url = self.validate_target()
+        except UrlPolicyError as e:
+            return ScanResult(
+                scanner=self.name,
+                success=False,
+                findings=[],
+                error=f"URL policy violation: {e}",
+                duration_ms=0,
+            )
+
+        try:
+            tool_info = detect_tool("zap-cli", min_version=(0, 10, 0))
+        except (ToolNotFoundError, ToolVersionError) as e:
+            return ScanResult(
+                scanner=self.name,
+                success=False,
+                findings=[],
+                error=f"ZAP native mode unavailable: {e}",
+                duration_ms=0,
+            )
+
+        output_file = ctx.output_dir / "zap-results.json"
+        backend = NativeBackend()
+
+        args = [
+            "quick-scan",
+            "--self-contained",
+            "-o",
+            str(output_file),
+            "-f",
+            "json",
+            validated_url,
+        ]
+
+        result = backend.execute(
+            tool=tool_info.path,
+            args=args,
+            repo_path=ctx.repo_path,
+            output_path=ctx.output_dir,
+            timeout_seconds=self._timeout,
+            network_required=True,
+        )
+
+        return self._process_result(
+            result.timed_out, result.duration_ms, result.stderr, ctx.output_dir
+        )
+
+    def _process_result(
+        self, timed_out: bool, duration_ms: int, stderr: str, output_dir: Path
+    ) -> ScanResult:
+        """Process scan result from either backend."""
+        if timed_out:
             return ScanResult(
                 scanner=self.name,
                 success=False,
                 findings=[],
                 error="ZAP scan timed out",
-                duration_ms=result.duration_ms,
+                duration_ms=duration_ms,
             )
 
-        # Check for output file (ZAP may write to different locations)
-        zap_output = ctx.output_dir / "zap-results.json"
+        zap_output = output_dir / "zap-results.json"
         if not zap_output.exists():
-            # Try alternate location
-            alt_output = ctx.output_dir / "wrk" / "zap-results.json"
+            alt_output = output_dir / "wrk" / "zap-results.json"
             if alt_output.exists():
                 zap_output = alt_output
 
@@ -122,8 +226,8 @@ class ZapScanner:
                 scanner=self.name,
                 success=False,
                 findings=[],
-                error=result.stderr or "No output file produced",
-                duration_ms=result.duration_ms,
+                error=stderr or "No output file produced",
+                duration_ms=duration_ms,
             )
 
         try:
@@ -135,7 +239,7 @@ class ZapScanner:
                 findings=[],
                 raw_output_path=zap_output,
                 error=f"Parse error: {exc}",
-                duration_ms=result.duration_ms,
+                duration_ms=duration_ms,
             )
 
         return ScanResult(
@@ -143,7 +247,7 @@ class ZapScanner:
             success=True,
             findings=findings,
             raw_output_path=zap_output,
-            duration_ms=result.duration_ms,
+            duration_ms=duration_ms,
         )
 
     def parse(self, raw_output: str) -> list[Finding]:

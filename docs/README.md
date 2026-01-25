@@ -33,6 +33,11 @@ Generate STRIDE-aligned threat models from your codebase.
 
 - **[ThreatFlow Guide](threatflow/README.md)** — Setup and usage guide
 
+### Regulon (Compliance Checker) — Extracted
+
+> **Note:** Regulon has been extracted to its own repository for independent development and versioning.
+> See [github.com/kademoslabs/regulon](https://github.com/kademoslabs/regulon) for the standalone project.
+
 ### Operations (Production Hardening)
 
 Production-ready operations for backup, monitoring, and upgrades.
