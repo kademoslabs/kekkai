@@ -30,7 +30,7 @@ homebrew-tap/
 
 ## Release Workflow
 
-### 1. Create Release in kekkai-cli Repository
+### 1. Create Release in kekkai Repository
 
 The release script (`scripts/release.sh`) generates:
 
@@ -58,8 +58,8 @@ Edit `Formula/kekkai.rb`:
 ```ruby
 class Kekkai < Formula
   desc "Security that moves at developer speed"
-  homepage "https://github.com/kademoslabs/kekkai-cli"
-  url "https://github.com/kademoslabs/kekkai-cli/archive/refs/tags/v0.0.1.tar.gz"
+  homepage "https://github.com/kademoslabs/kekkai"
+  url "https://github.com/kademoslabs/kekkai/archive/refs/tags/v0.0.1.tar.gz"
   sha256 "a1b2c3d4e5f6..."  # <-- Update this with sha256 from checksums.txt
   license "Apache-2.0"
 
@@ -121,8 +121,8 @@ class Kekkai < Formula
   include Language::Python::Virtualenv
 
   desc "Local-first AppSec orchestration for Trivy, Semgrep, and DefectDojo"
-  homepage "https://github.com/kademoslabs/kekkai-cli"
-  url "https://github.com/kademoslabs/kekkai-cli/archive/refs/tags/v{VERSION}.tar.gz"
+  homepage "https://github.com/kademoslabs/kekkai"
+  url "https://github.com/kademoslabs/kekkai/archive/refs/tags/v{VERSION}.tar.gz"
   sha256 "{SHA256}"
   license "Apache-2.0"
 
@@ -151,7 +151,7 @@ end
 
 ### Automated Formula Updates
 
-For automated updates, add to `.github/workflows/release.yml` in kekkai-cli:
+For automated updates, add to `.github/workflows/release.yml` in kekkai:
 
 ```yaml
 - name: Update Homebrew Formula
@@ -166,7 +166,7 @@ For automated updates, add to `.github/workflows/release.yml` in kekkai-cli:
     cd homebrew-tap
 
     # Update formula
-    sed -i "s|url \".*\"|url \"https://github.com/kademoslabs/kekkai-cli/archive/refs/tags/v${VERSION}.tar.gz\"|" Formula/kekkai.rb
+    sed -i "s|url \".*\"|url \"https://github.com/kademoslabs/kekkai/archive/refs/tags/v${VERSION}.tar.gz\"|" Formula/kekkai.rb
     sed -i "s|sha256 \".*\"|sha256 \"${SHA256}\"|" Formula/kekkai.rb
 
     # Commit and push
@@ -243,7 +243,7 @@ Test formula on:
 Always verify checksums match:
 
 ```bash
-# In kekkai-cli repo
+# In kekkai repo
 sha256sum dist/kekkai-{version}.tar.gz
 
 # Should match sha256 in Formula/kekkai.rb
@@ -253,7 +253,7 @@ sha256sum dist/kekkai-{version}.tar.gz
 
 ## Release Checklist
 
-- [ ] Run `make release` in kekkai-cli
+- [ ] Run `make release` in kekkai
 - [ ] Extract SHA256 from `dist/checksums.txt`
 - [ ] Update `Formula/kekkai.rb` with new version and SHA256
 - [ ] Test formula locally (`brew install --build-from-source`)

@@ -1,0 +1,77 @@
+# Dockerignore for Kekkai CLI
+# Excludes files not needed in Docker image
+
+# Version control
+.git/
+.gitignore
+.github/
+
+# Documentation
+*.md
+!README.md
+docs/
+.docs/
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Testing / development
+tests/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Build artifacts (keep dist/ for wheel installation)
+build/
+*.egg-info/
+
+# IDEs / editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Secrets / config
+.env
+.env.*
+*.pem
+*.key
+
+# Runtime artifacts
+reports/
+artifacts/
+tmp/
+.cache/
+
+# CI configuration (not needed in image)
+.circleci/
+.github/
+
+# Distribution staging (separate repositories)
+SEPARATE/
+
+# Apps (other than current)
+apps/portal/
+apps/regulon/
+
+# Scripts (not needed in runtime image)
+scripts/

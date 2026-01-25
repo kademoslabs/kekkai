@@ -124,7 +124,7 @@ Keep documentation:
 
 ## Support
 
-- **Issues:** [GitHub Issues](https://github.com/kademoslabs/kekkai-cli/issues)
+- **Issues:** [GitHub Issues](https://github.com/kademoslabs/kekkai/issues)
 - **Security:** [security@kademos.org](mailto:security@kademos.org)
 - **Website:** [kademos.org/kekkai](https://kademos.org/kekkai)
 

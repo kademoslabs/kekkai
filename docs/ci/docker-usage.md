@@ -7,7 +7,7 @@ Run Kekkai CLI in a hardened Docker container without installing Python locally.
 ### Build the Image
 
 ```bash
-cd /path/to/kekkai-cli
+cd /path/to/kekkai
 docker build -t kademoslabs/kekkai:latest -f apps/kekkai/Dockerfile .
 ```
 
@@ -45,7 +45,7 @@ chmod +x scripts/kekkai-docker
 Add to your `~/.bashrc` or `~/.zshrc`:
 
 ```bash
-alias kekkai="/path/to/kekkai-cli/scripts/kekkai-docker"
+alias kekkai="/path/to/kekkai/scripts/kekkai-docker"
 ```
 
 Now you can run:
@@ -262,6 +262,6 @@ docker run --rm -it --entrypoint /bin/bash \
 
 For issues with Docker wrapper:
 
-1. Check [GitHub Issues](https://github.com/kademoslabs/kekkai-cli/issues)
+1. Check [GitHub Issues](https://github.com/kademoslabs/kekkai/issues)
 2. Review [Troubleshooting](#troubleshooting) section above
 3. Report security concerns to [security@kademos.org](mailto:security@kademos.org)

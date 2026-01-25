@@ -568,7 +568,7 @@ If your issue is not listed here:
 
 1. **Check Docker logs:** `docker logs <container-name>`
 2. **Search DefectDojo issues:** [DefectDojo GitHub Issues](https://github.com/DefectDojo/django-DefectDojo/issues)
-3. **Check Kekkai issues:** [Kekkai GitHub Issues](https://github.com/kademoslabs/kekkai-cli/issues)
+3. **Check Kekkai issues:** [Kekkai GitHub Issues](https://github.com/kademoslabs/kekkai/issues)
 4. **Ask the community:** DefectDojo Slack or forums
 
 When reporting issues, include:
