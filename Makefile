@@ -186,6 +186,11 @@ native-test: ## Test native mode scanner backends
 	pytest -m "integration" tests/integration/test_kekkai_native_mode.py -v
 	pytest -m "regression" tests/regression/test_native_command_manifest.py -v
 
+installer-test: ## Test tool installer module
+	pytest tests/test_installer_*.py -v --cov=src/kekkai/installer --cov-report=term-missing
+	pytest -m "integration" tests/integration/test_installer_e2e.py -v
+	pytest -m "regression" tests/regression/test_installer_backends.py -v
+
 windows-unit: ## Windows unit tests
 	pytest tests/windows -v --cov=src/kekkai_core/windows --cov-report=term-missing
 
