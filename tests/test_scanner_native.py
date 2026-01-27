@@ -16,6 +16,8 @@ from kekkai.scanners.backends import (
     detect_tool,
 )
 
+IS_WINDOWS = sys.platform == "win32"
+
 
 class TestScannerBackendSelection:
     """Test that scanners select the correct backend."""
@@ -106,6 +108,7 @@ class TestNativeScannerExecution:
         assert "below minimum" in (result.error or "").lower()
 
 
+@pytest.mark.skipif(IS_WINDOWS, reason="Shell scripts don't execute on Windows")
 class TestFakeToolDetection:
     """Test tool detection with fake PATH binaries."""
 

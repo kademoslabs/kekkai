@@ -19,6 +19,8 @@ from kekkai.scanners.backends import (
     docker_available,
 )
 
+IS_WINDOWS = sys.platform == "win32"
+
 
 class TestDockerAvailable:
     def test_docker_available_returns_tuple(self) -> None:
@@ -47,6 +49,7 @@ class TestDetectTool:
             detect_tool("nonexistent_tool_xyz123")
         assert "not found" in str(exc.value).lower()
 
+    @pytest.mark.skipif(IS_WINDOWS, reason="Shell scripts don't execute on Windows")
     def test_detect_tool_requires_minimum_version(self, tmp_path: Path) -> None:
         fake_tool = tmp_path / "fake_tool"
         fake_tool.write_text("#!/bin/sh\necho 'version 0.1.0'")
@@ -57,6 +60,7 @@ class TestDetectTool:
                 detect_tool("fake_tool", min_version=(1, 0, 0))
             assert "below minimum" in str(exc.value).lower()
 
+    @pytest.mark.skipif(IS_WINDOWS, reason="Shell scripts don't execute on Windows")
     def test_detect_tool_with_valid_version(self, tmp_path: Path) -> None:
         fake_tool = tmp_path / "fake_tool"
         fake_tool.write_text(f"#!{sys.executable}\nprint('version 2.0.0')")

@@ -1,8 +1,11 @@
 """Unit tests for Cosign key management procedures."""
 
+import sys
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from kekkai_core.docker.signing import generate_keypair
 
@@ -187,6 +190,7 @@ class TestKeyBackupAndRecovery:
 class TestKeySecurityValidation:
     """Test key security validation."""
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Unix permissions not on Windows")
     def test_private_key_should_not_be_world_readable(self, tmp_path: Path) -> None:
         """Verify private key has restrictive permissions."""
         import os
@@ -201,6 +205,7 @@ class TestKeySecurityValidation:
         stat_info = private_key.stat()
         assert stat_info.st_mode & 0o777 == 0o600
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Unix permissions not on Windows")
     def test_public_key_can_be_world_readable(self, tmp_path: Path) -> None:
         """Verify public key can have open permissions."""
         import os

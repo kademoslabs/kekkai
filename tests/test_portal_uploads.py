@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 import tempfile
 from pathlib import Path
 
@@ -170,6 +171,7 @@ class TestProcessUpload:
             assert tenant_dir.exists()
             assert tenant_dir.is_dir()
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Unix permissions not on Windows")
     def test_process_file_permissions(self, test_tenant: Tenant, valid_json_content: bytes) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             upload_dir = Path(tmpdir)
@@ -210,7 +212,8 @@ class TestGetUploadPath:
 
             path = get_upload_path(test_tenant, result.upload_id, upload_dir)
             assert path is not None
-            assert path == result.file_path
+            assert result.file_path is not None
+            assert path.resolve() == result.file_path.resolve()
 
     def test_get_nonexistent_upload(self, test_tenant: Tenant) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -297,8 +300,14 @@ class TestSanitizeFilename:
     def test_sanitize_removes_dotdot(self) -> None:
         # Path.name extracts basename, so "../scan.json" becomes "scan.json"
         assert _sanitize_filename("../scan.json") == "scan.json"
-        # "..\\scan.json" has ".." in it which is rejected for safety
-        assert _sanitize_filename("..\\scan.json") is None
+        # "..\\scan.json" should be rejected for safety (path traversal)
+        # On Windows, backslash is a path separator so it becomes "scan.json"
+        # On Unix, backslash is part of filename and ".." triggers rejection
+        result = _sanitize_filename("..\\scan.json")
+        if sys.platform == "win32":
+            assert result == "scan.json"
+        else:
+            assert result is None
 
     def test_sanitize_removes_null_bytes(self) -> None:
         result = _sanitize_filename("scan\x00.json")

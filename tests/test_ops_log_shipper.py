@@ -240,12 +240,15 @@ class TestLogShipper:
                 message="File test",
             )
 
-            # Ship directly (bypass background thread)
-            shipper._ship_file([entry])
+            try:
+                # Ship directly (bypass background thread)
+                shipper._ship_file([entry])
 
-            assert log_file.exists()
-            content = log_file.read_text()
-            assert "File test" in content
+                assert log_file.exists()
+                content = log_file.read_text()
+                assert "File test" in content
+            finally:
+                shipper.stop()  # Close file handle before temp dir cleanup
 
     @patch("socket.socket")
     def test_ship_to_syslog_udp(self, mock_socket_class: MagicMock) -> None:
@@ -309,16 +312,19 @@ class TestLogShipper:
             )
             shipper = LogShipper(config)
 
-            # Write initial content
-            log_file.write_text("initial content\n")
+            try:
+                # Write initial content
+                log_file.write_text("initial content\n")
 
-            # Ship an entry (should trigger rotation)
-            shipper._ensure_file_handle()
-            shipper._maybe_rotate_file()
+                # Ship an entry (should trigger rotation)
+                shipper._ensure_file_handle()
+                shipper._maybe_rotate_file()
 
-            # Check for rotated file
-            rotated_file = log_file.with_suffix(".1.jsonl")
-            assert rotated_file.exists()
+                # Check for rotated file
+                rotated_file = log_file.with_suffix(".1.jsonl")
+                assert rotated_file.exists()
+            finally:
+                shipper.stop()  # Close file handle before temp dir cleanup
 
 
 class TestCreateLogShipper:

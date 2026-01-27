@@ -1,40 +1,38 @@
 # Kekkai Portal Docker Image
-FROM python:3.12-slim
+# Multi-stage build using Chainguard distroless images for security
 
 LABEL maintainer="Kademos Labs"
 LABEL description="Kekkai Portal - DefectDojo-backed security dashboard"
 
-# Security: Run as non-root user
-RUN groupadd -r kekkai && useradd -r -g kekkai kekkai
+# Build stage - build wheel and install
+FROM cgr.dev/chainguard/python:latest-dev AS builder
 
-# Install dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+WORKDIR /home/nonroot/build
 
-# Set working directory
+# Copy source code (owned by nonroot user)
+COPY --chown=nonroot:nonroot pyproject.toml README.md ./
+COPY --chown=nonroot:nonroot src/ src/
+
+# Build wheel and install to user directory
+RUN pip wheel --no-cache-dir --wheel-dir=/home/nonroot/wheels . && \
+    pip install --no-cache-dir --user /home/nonroot/wheels/*.whl
+
+# Create data directories in builder
+RUN mkdir -p /home/nonroot/uploads /home/nonroot/static
+RUN cp -r src/portal/static/* /home/nonroot/static/ 2>/dev/null || true
+
+# Final stage - minimal runtime image (distroless, no shell)
+FROM cgr.dev/chainguard/python:latest
+
 WORKDIR /app
 
-# Copy source code
-COPY src/ /app/src/
-COPY pyproject.toml /app/
+# Copy installed packages and static files from builder
+COPY --from=builder /home/nonroot/.local /home/nonroot/.local
+COPY --from=builder /home/nonroot/uploads /var/lib/kekkai-portal/uploads
+COPY --from=builder /home/nonroot/static /var/www/static
 
-# Install the package
-RUN pip install --no-cache-dir -e .
-
-# Create data directories
-RUN mkdir -p /var/lib/kekkai-portal/uploads && \
-    chown -R kekkai:kekkai /var/lib/kekkai-portal
-
-# Copy static files for nginx
-RUN mkdir -p /var/www/static && \
-    cp -r /app/src/portal/static/* /var/www/static/ && \
-    chown -R kekkai:kekkai /var/www/static
-
-# Switch to non-root user
-USER kekkai
-
-# Environment variables
+# Set Python path
+ENV PATH=/home/nonroot/.local/bin:$PATH
 ENV PYTHONUNBUFFERED=1
 ENV PORTAL_HOST=0.0.0.0
 ENV PORTAL_PORT=8000
@@ -42,9 +40,8 @@ ENV PORTAL_PORT=8000
 # Expose port
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/api/v1/health || exit 1
+# Note: HEALTHCHECK with curl not available in distroless
+# Use container orchestrator health checks instead (k8s probes, etc.)
 
 # Run the server
 CMD ["python", "-m", "portal.web"]

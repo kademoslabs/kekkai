@@ -2,23 +2,29 @@
 # Hardened container image for running kekkai without local Python installation
 # Usage: docker build -t kademoslabs/kekkai:latest -f apps/kekkai/Dockerfile .
 
-FROM python:3.12-slim-bookworm
+# Build stage - build wheel and install
+FROM cgr.dev/chainguard/python:latest-dev AS builder
 
-# Create non-root user for security
-RUN useradd -m -u 1000 -s /bin/bash kekkai
+WORKDIR /home/nonroot/build
+
+# Copy project files (owned by nonroot user in this directory)
+COPY --chown=nonroot:nonroot pyproject.toml README.md ./
+COPY --chown=nonroot:nonroot src/ src/
+
+# Build wheel and install to user directory
+RUN pip wheel --no-cache-dir --wheel-dir=/home/nonroot/wheels . && \
+    pip install --no-cache-dir --user /home/nonroot/wheels/*.whl
+
+# Final stage - minimal runtime image (distroless, no shell)
+FROM cgr.dev/chainguard/python:latest
 
 WORKDIR /app
 
-# Copy project files
-COPY requirements/ requirements/
-COPY pyproject.toml .
-COPY src/ src/
+# Copy installed packages from builder
+COPY --from=builder /home/nonroot/.local /home/nonroot/.local
 
-# Install kekkai package
-RUN pip install --no-cache-dir -e .
+# Set Python path
+ENV PATH=/home/nonroot/.local/bin:$PATH
 
-# Switch to non-root user
-USER kekkai
-
-ENTRYPOINT ["kekkai"]
+ENTRYPOINT ["python", "-m", "kekkai.cli"]
 CMD ["--help"]

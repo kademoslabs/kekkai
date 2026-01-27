@@ -138,11 +138,13 @@ def default_config(base_dir: Path) -> dict[str, object]:
 
 def default_config_text(base_dir: Path) -> str:
     env_allowlist = ", ".join(f'"{item}"' for item in DEFAULT_ENV_ALLOWLIST)
+    # Use forward slashes for TOML compatibility on Windows (backslashes are escape chars)
+    run_base_dir = str(base_dir / "runs").replace("\\", "/")
     return (
         "# Kekkai config\n"
         "# Values can be overridden via env (KEKKAI_*) or CLI flags.\n\n"
         f'repo_path = "."\n'
-        f'run_base_dir = "{base_dir / "runs"}"\n'
+        f'run_base_dir = "{run_base_dir}"\n'
         f"timeout_seconds = {DEFAULT_TIMEOUT_SECONDS}\n"
         f"env_allowlist = [{env_allowlist}]\n\n"
         "# [[pipeline]]\n"

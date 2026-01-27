@@ -99,6 +99,7 @@ class TestFalcoScannerPriorityMapping:
 
 
 class TestFalcoScannerAvailability:
+    @pytest.mark.skipif(platform.system() != "Linux", reason="Falco is Linux-only")
     def test_not_available_when_disabled(self) -> None:
         scanner = FalcoScanner(enabled=False)
         available, reason = scanner.is_available()
