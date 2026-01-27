@@ -12,6 +12,15 @@ from typing import cast
 from . import dojo, manifest
 from .config import ConfigOverrides, DojoSettings, PolicySettings, load_config
 from .dojo_import import DojoConfig, import_results_to_dojo
+from .output import (
+    ScanSummaryRow,
+    console,
+    print_quick_start,
+    print_scan_summary,
+    sanitize_error,
+    sanitize_for_terminal,
+    splash,
+)
 from .paths import app_base_dir, config_path, ensure_dir, is_within_base, safe_join
 from .policy import (
     EXIT_SCAN_ERROR,
@@ -193,10 +202,10 @@ def _handle_no_args() -> int:
     cfg_path = config_path()
     if not cfg_path.exists():
         return _command_init(None, False)
-    print(_splash())
-    print("Config exists. Run one of:")
-    print("  kekkai scan")
-    print("  kekkai init --force")
+    console.print(splash())
+    console.print("Config exists. Run one of:")
+    console.print("  [green]kekkai scan[/green]")
+    console.print("  [green]kekkai init --force[/green]")
     return 0
 
 
@@ -212,8 +221,9 @@ def _command_init(config_override: str | None, force: bool) -> int:
     ensure_dir(cfg_path.parent)
 
     cfg_path.write_text(load_config_text(base_dir))
-    print(_splash())
-    print(f"Initialized config at {cfg_path}")
+    console.print(splash())
+    console.print(f"Initialized config at [cyan]{cfg_path}[/cyan]")
+    console.print(print_quick_start())
     return 0
 
 
@@ -312,21 +322,24 @@ def _command_scan(
                 falco_enabled=falco_enabled,
             )
             if scanner is None:
-                print(f"Unknown scanner: {name}")
+                console.print(f"[warning]Unknown scanner: {sanitize_for_terminal(name)}[/warning]")
                 continue
 
             scanners_map[name] = scanner
-            print(f"Running {name}...")
+            console.print(f"Running [cyan]{sanitize_for_terminal(name)}[/cyan]...")
             scan_result = scanner.run(ctx)
             scan_results.append(scan_result)
             if not scan_result.success:
-                print(f"  {name} failed: {scan_result.error}")
+                err_msg = sanitize_error(scan_result.error or "Unknown error")
+                console.print(f"  [danger]{sanitize_for_terminal(name)} failed:[/danger] {err_msg}")
                 # For ZAP/Falco: failures should not be hidden
                 if name in ("zap", "falco"):
                     status_ok = False
             else:
                 deduped = dedupe_findings(scan_result.findings)
-                print(f"  {name}: {len(deduped)} findings")
+                console.print(
+                    f"  [success]{sanitize_for_terminal(name)}:[/success] {len(deduped)} findings"
+                )
 
         # Import to DefectDojo if requested
         if import_dojo or (cfg.dojo and cfg.dojo.enabled):
@@ -336,7 +349,7 @@ def _command_scan(
                 dojo_api_key_override,
             )
             if dojo_cfg and dojo_cfg.api_key:
-                print("Importing to DefectDojo...")
+                console.print("Importing to DefectDojo...")
                 import_results = import_results_to_dojo(
                     config=dojo_cfg,
                     results=scan_results,
@@ -347,11 +360,14 @@ def _command_scan(
                 for ir in import_results:
                     if ir.success:
                         created, closed = ir.findings_created, ir.findings_closed
-                        print(f"  Imported: {created} created, {closed} closed")
+                        console.print(
+                            f"  [success]Imported:[/success] {created} created, {closed} closed"
+                        )
                     else:
-                        print(f"  Import failed: {ir.error}")
+                        err = sanitize_error(ir.error or "")
+                        console.print(f"  [danger]Import failed:[/danger] {err}")
             else:
-                print("DefectDojo import skipped: no API key configured")
+                console.print("[muted]DefectDojo import skipped: no API key configured[/muted]")
 
     finished_at = _now_iso()
     run_manifest = manifest.build_manifest(
@@ -385,10 +401,16 @@ def _command_scan(
         # Print summary
         _print_policy_summary(policy_result)
 
-        print(f"Run complete: {run_dir}")
+        # Print scan summary table
+        _print_scan_summary_table(scan_results)
+
+        console.print(f"Run complete: [cyan]{run_dir}[/cyan]")
         return policy_result.exit_code
 
-    print(f"Run complete: {run_dir}")
+    # Print scan summary table
+    _print_scan_summary_table(scan_results)
+
+    console.print(f"Run complete: [cyan]{run_dir}[/cyan]")
     return 0 if status_ok else EXIT_SCAN_ERROR
 
 
@@ -437,26 +459,44 @@ def _resolve_policy_config(
     return default_ci_policy()
 
 
+def _print_scan_summary_table(scan_results: list[ScanResult]) -> None:
+    """Print scan results summary table."""
+    if not scan_results:
+        return
+
+    rows = [
+        ScanSummaryRow(
+            scanner=r.scanner,
+            success=r.success,
+            findings_count=len(dedupe_findings(r.findings)) if r.success else 0,
+            duration_ms=r.duration_ms,
+        )
+        for r in scan_results
+    ]
+    console.print(print_scan_summary(rows))
+
+
 def _print_policy_summary(result: PolicyResult) -> None:
     """Print policy evaluation summary to stdout."""
     counts = result.counts
-    print(f"\nPolicy Evaluation: {'PASSED' if result.passed else 'FAILED'}")
-    print(f"  Findings: {counts.total} total")
-    print(f"    Critical: {counts.critical}")
-    print(f"    High: {counts.high}")
-    print(f"    Medium: {counts.medium}")
-    print(f"    Low: {counts.low}")
-    print(f"    Info: {counts.info}")
+    status = "[success]PASSED[/success]" if result.passed else "[danger]FAILED[/danger]"
+    console.print(f"\nPolicy Evaluation: {status}")
+    console.print(f"  Findings: {counts.total} total")
+    console.print(f"    [danger]Critical:[/danger] {counts.critical}")
+    console.print(f"    [warning]High:[/warning] {counts.high}")
+    console.print(f"    [info]Medium:[/info] {counts.medium}")
+    console.print(f"    Low: {counts.low}")
+    console.print(f"    [muted]Info:[/muted] {counts.info}")
 
     if result.violations:
-        print("  Violations:")
+        console.print("  [danger]Violations:[/danger]")
         for v in result.violations:
-            print(f"    - {v.message}")
+            console.print(f"    - {sanitize_for_terminal(v.message)}")
 
     if result.scan_errors:
-        print("  Scan Errors:")
+        console.print("  [warning]Scan Errors:[/warning]")
         for e in result.scan_errors:
-            print(f"    - {e}")
+            console.print(f"    - {sanitize_error(e)}")
 
 
 def _create_scanner(
@@ -806,14 +846,6 @@ def _generate_run_id() -> str:
 
 def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
-
-
-def _splash() -> str:
-    return (
-        "Kekkai — Security that moves at developer speed.\n"
-        "===============================================\n"
-        "[shield]>_\n"
-    )
 
 
 def load_config_text(base_dir: Path) -> str:

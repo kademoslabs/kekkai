@@ -23,5 +23,6 @@ repos:
         additional_dependencies:
           - pytest
           - types-Jinja2
+          - rich>=13.0.0
         args: ["--config-file=pyproject.toml"]
         files: ^(src|tests)/.*\.py$

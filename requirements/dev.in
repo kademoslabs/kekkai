@@ -8,3 +8,4 @@ bandit
 pip-audit
 Jinja2
 types-Jinja2
+rich

@@ -110,6 +110,7 @@ requests==2.32.5
     #   pip-audit
 rich==14.2.0
     # via
+    #   -r requirements/dev.in
     #   bandit
     #   pip-audit
 ruff==0.14.13
