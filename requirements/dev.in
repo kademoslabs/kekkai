@@ -9,3 +9,5 @@ pip-audit
 Jinja2
 types-Jinja2
 rich
+jsonschema>=4.20.0
+types-jsonschema

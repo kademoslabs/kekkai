@@ -26,7 +26,19 @@ from .model_adapter import (
 )
 from .prompts import PromptBuilder, STRIDECategory
 from .redaction import ThreatFlowRedactor
-from .sanitizer import InjectionPattern, Sanitizer, SanitizeResult
+from .sanitizer import (
+    ClassifierResult,
+    DefenseLayer,
+    InjectionClassifier,
+    InjectionPattern,
+    InjectionRisk,
+    OutputValidationResult,
+    SanitizeConfig,
+    Sanitizer,
+    SanitizeResult,
+    TieredSanitizer,
+    TieredSanitizeResult,
+)
 
 __all__ = [
     # Core
@@ -57,4 +69,13 @@ __all__ = [
     "Sanitizer",
     "SanitizeResult",
     "InjectionPattern",
+    "InjectionRisk",
+    # Tiered Sanitizer (Milestone 5)
+    "TieredSanitizer",
+    "TieredSanitizeResult",
+    "SanitizeConfig",
+    "DefenseLayer",
+    "InjectionClassifier",
+    "ClassifierResult",
+    "OutputValidationResult",
 ]

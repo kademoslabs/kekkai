@@ -24,5 +24,7 @@ repos:
           - pytest
           - types-Jinja2
           - rich>=13.0.0
+          - jsonschema>=4.20.0
+          - types-jsonschema
         args: ["--config-file=pyproject.toml"]
         files: ^(src|tests)/.*\.py$

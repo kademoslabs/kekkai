@@ -1,7 +1,7 @@
 """Chocolatey NuGet package generation and validation for Windows distribution."""
 
 import re
-import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as ET  # nosec B405 - generates trusted XML, not parsing untrusted
 from typing import Any
 
 
