@@ -49,7 +49,14 @@ docker build -t kademoslabs/kekkai:latest -f apps/kekkai/Dockerfile .
 alias kekkai="$(pwd)/scripts/kekkai-docker"
 ```
 
-**Option 4: pip (Traditional)**
+**Option 4: Scoop (Windows)**
+
+```powershell
+scoop bucket add kademoslabs https://github.com/kademoslabs/scoop-bucket
+scoop install kekkai
+```
+
+**Option 5: pip (Traditional)**
 
 ```bash
 pip install kekkai

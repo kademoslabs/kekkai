@@ -23,6 +23,11 @@ jobs:
             . .venv/bin/activate
             make native-test
       - run:
+          name: Windows integration tests
+          command: |
+            . .venv/bin/activate
+            make windows-unit
+      - run:
           name: pipx install test
           command: |
             . .venv/bin/activate
@@ -49,6 +54,11 @@ jobs:
           command: |
             . .venv/bin/activate
             make ci
+      - run:
+          name: Windows tests
+          command: |
+            . .venv/bin/activate
+            make windows-test
 
   build_release:
     docker:
@@ -67,6 +77,12 @@ jobs:
           command: |
             . .venv/bin/activate
             make release
+      - run:
+          name: Validate wheel artifacts
+          command: |
+            . .venv/bin/activate
+            ls -la dist/*.whl
+            test -f dist/*.whl || (echo "ERROR: No wheel file found" && exit 1)
       - run:
           name: Build Docker image
           command: |

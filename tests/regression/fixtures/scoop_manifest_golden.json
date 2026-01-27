@@ -1,0 +1,43 @@
+{
+  "version": "0.0.1",
+  "description": "Kekkai - Local-first AppSec orchestration and compliance checker",
+  "homepage": "https://github.com/kademoslabs/kekkai",
+  "license": "MIT",
+  "depends": "python",
+  "url": "https://github.com/kademoslabs/kekkai/releases/download/v0.0.1/kekkai-0.0.1-py3-none-any.whl",
+  "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "installer": {
+    "script": [
+      "# Validate Python version",
+      "$pythonVersion = python --version 2>&1 | Select-String -Pattern \"Python (\\\\d+\\\\.\\\\d+)\"",
+      "$version = [version]$pythonVersion.Matches.Groups[1].Value",
+      "if ($version -lt [version]\"3.12\") {",
+      "    Write-Error \"Python 3.12+ required, found $version\"",
+      "    exit 1",
+      "}",
+      "",
+      "# Install Kekkai wheel",
+      "python -m pip install --force-reinstall --no-deps \"https://github.com/kademoslabs/kekkai/releases/download/v0.0.1/kekkai-0.0.1-py3-none-any.whl\"",
+      "if ($LASTEXITCODE -ne 0) {",
+      "    Write-Error \"pip install failed\"",
+      "    exit 1",
+      "}"
+    ]
+  },
+  "uninstaller": {
+    "script": [
+      "python -m pip uninstall -y kekkai"
+    ]
+  },
+  "checkver": {
+    "github": "https://github.com/kademoslabs/kekkai"
+  },
+  "autoupdate": {
+    "url": "https://github.com/kademoslabs/kekkai/releases/download/v$version/kekkai-$version-py3-none-any.whl"
+  },
+  "notes": [
+    "Kekkai has been installed successfully!",
+    "Run 'kekkai --help' to get started.",
+    "For documentation, visit: https://github.com/kademoslabs/kekkai"
+  ]
+}

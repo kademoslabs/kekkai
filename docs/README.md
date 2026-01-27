@@ -70,6 +70,7 @@ Kekkai supports multiple installation methods to fit your workflow:
 |--------|----------|---------|
 | **pipx** | Isolated Python environments, recommended for local development | `pipx install kekkai` |
 | **Homebrew** | macOS/Linux users who prefer native package managers | `brew install kademoslabs/tap/kekkai` |
+| **Scoop** | Windows users who prefer command-line package managers | `scoop install kademoslabs/kekkai` |
 | **Docker** | CI/CD pipelines, no local Python installation required | `./scripts/kekkai-docker --help` |
 | **pip** | Traditional Python environments | `pip install kekkai` |
 
@@ -78,11 +79,14 @@ Kekkai supports multiple installation methods to fit your workflow:
 - **pipx**: See [main README](../README.md#installation) for quick setup
 - **Docker**: See [Docker Usage Guide](ci/docker-usage.md) for security model and CI integration
 - **Homebrew**: See [Homebrew Maintenance](ci/homebrew-maintenance.md) for tap details
+- **Scoop**: See [Windows Installation Guide](installation/windows.md) for Windows-specific setup
+- **Windows**: See [Scoop Integration](ci/scoop-integration.md) for technical details
 
 ### Which Method Should I Use?
 
 - **For local development**: Use **pipx** for isolated, clean environments
 - **For macOS/Linux systems**: Use **Homebrew** for native package management
+- **For Windows systems**: Use **Scoop** for easy command-line installation
 - **For CI/CD**: Use **Docker** for reproducible, sandboxed execution
 - **For traditional Python projects**: Use **pip** if managing dependencies manually
 
@@ -97,7 +101,10 @@ docs/
 │   ├── ci-mode.md               # CI policy enforcement guide
 │   ├── docker-usage.md          # Docker usage guide
 │   ├── homebrew-maintenance.md  # Homebrew tap maintenance
+│   ├── scoop-integration.md     # Scoop/Windows integration
 │   └── automated-distributions.md # Distribution automation
+├── installation/
+│   └── windows.md               # Windows installation guide
 ├── dojo/                        # DefectDojo Docs
 │   ├── dojo-quickstart.md       # 5-minute quick start
 │   ├── dojo.md                  # Complete Dojo guide
