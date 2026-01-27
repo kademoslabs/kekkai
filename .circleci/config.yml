@@ -69,6 +69,11 @@ jobs:
           command: |
             . .venv/bin/activate
             make chocolatey-test
+      - run:
+          name: Docker security tests
+          command: |
+            . .venv/bin/activate
+            make docker-security-test
 
   build_release:
     docker:

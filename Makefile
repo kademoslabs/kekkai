@@ -78,6 +78,99 @@ docker-test: ## Test Docker wrapper
 	./scripts/kekkai-docker --version
 	./scripts/kekkai-docker --help
 
+docker-scan: ## Scan Docker image for vulnerabilities
+	@if ! command -v trivy >/dev/null 2>&1; then \
+		echo "Trivy not installed. Install: https://aquasecurity.github.io/trivy/"; \
+		exit 1; \
+	fi
+	docker build -t kademoslabs/kekkai:scan -f apps/kekkai/Dockerfile .
+	trivy image --severity CRITICAL,HIGH,MEDIUM,LOW kademoslabs/kekkai:scan
+
+docker-sign: ## Sign Docker image with Cosign
+	@if ! command -v cosign >/dev/null 2>&1; then \
+		echo "Cosign not installed. Install: https://docs.sigstore.dev/cosign/installation/"; \
+		exit 1; \
+	fi
+	@echo "Signing image kademoslabs/kekkai:latest..."
+	@if [ -z "$$COSIGN_PRIVATE_KEY" ]; then \
+		echo "COSIGN_PRIVATE_KEY not set. Using keyless signing..."; \
+		cosign sign --yes kademoslabs/kekkai:latest; \
+	else \
+		echo "$$COSIGN_PRIVATE_KEY" > /tmp/cosign.key; \
+		cosign sign --yes --key /tmp/cosign.key kademoslabs/kekkai:latest; \
+		rm -f /tmp/cosign.key; \
+	fi
+
+docker-verify: ## Verify Docker image signature
+	@if ! command -v cosign >/dev/null 2>&1; then \
+		echo "Cosign not installed. Install: https://docs.sigstore.dev/cosign/installation/"; \
+		exit 1; \
+	fi
+	@echo "Verifying signature for kademoslabs/kekkai:latest..."
+	@if [ -z "$$COSIGN_PUBLIC_KEY" ]; then \
+		echo "COSIGN_PUBLIC_KEY not set. Using keyless verification..."; \
+		cosign verify kademoslabs/kekkai:latest; \
+	else \
+		echo "$$COSIGN_PUBLIC_KEY" > /tmp/cosign.pub; \
+		cosign verify --key /tmp/cosign.pub kademoslabs/kekkai:latest; \
+		rm -f /tmp/cosign.pub; \
+	fi
+
+docker-sbom: ## Generate SBOM for Docker image
+	@if ! command -v trivy >/dev/null 2>&1; then \
+		echo "Trivy not installed. Install: https://aquasecurity.github.io/trivy/"; \
+		exit 1; \
+	fi
+	@mkdir -p dist
+	docker build -t kademoslabs/kekkai:sbom -f apps/kekkai/Dockerfile .
+	trivy image --format spdx-json --output dist/sbom.spdx.json kademoslabs/kekkai:sbom
+	@echo "SBOM generated: dist/sbom.spdx.json"
+
+docker-security-test: ## Run Docker security tests
+	pytest tests/docker -v --cov=src/kekkai_core/docker --cov-report=term-missing
+
+cosign-keygen: ## Generate Cosign keypair for image signing
+	@echo "🔐 Generating Cosign keypair..."
+	@if ! command -v cosign >/dev/null 2>&1; then \
+		echo "❌ Cosign not installed. Install: https://docs.sigstore.dev/cosign/installation/"; \
+		exit 1; \
+	fi
+	@mkdir -p .cosign-keys
+	@echo "⚠️  You will be prompted to enter a password for the private key"
+	@cd .cosign-keys && cosign generate-key-pair
+	@echo "✅ Keys generated in .cosign-keys/"
+	@echo ""
+	@echo "📋 Next steps:"
+	@echo "  1. Add to GitHub Secrets:"
+	@echo "     - COSIGN_PRIVATE_KEY (content of .cosign-keys/cosign.key)"
+	@echo "     - COSIGN_PASSWORD (password you just entered)"
+	@echo "  2. Backup .cosign-keys/cosign.pub for verification"
+	@echo "  3. Securely delete local keys after upload:"
+	@echo "     shred -vfz -n 10 .cosign-keys/cosign.key"
+	@echo ""
+	@echo "⚠️  NEVER commit .cosign-keys/ to git (already in .gitignore)"
+	@echo ""
+	@echo "📖 See docs/security/cosign-key-management.md for details"
+
+cosign-verify-setup: ## Verify Cosign key setup in environment
+	@echo "🔍 Verifying Cosign configuration..."
+	@if ! command -v cosign >/dev/null 2>&1; then \
+		echo "❌ Cosign not installed"; \
+		exit 1; \
+	fi
+	@if [ -z "$$COSIGN_PRIVATE_KEY" ]; then \
+		echo "❌ COSIGN_PRIVATE_KEY not set in environment"; \
+		echo "💡 For GitHub Actions: Set as repository secret"; \
+		echo "💡 For local testing: export COSIGN_PRIVATE_KEY=\"\$$(cat .cosign-keys/cosign.key)\""; \
+		exit 1; \
+	fi
+	@if [ -z "$$COSIGN_PASSWORD" ]; then \
+		echo "❌ COSIGN_PASSWORD not set in environment"; \
+		exit 1; \
+	fi
+	@echo "✅ Cosign environment variables configured"
+	@echo "🔑 Private key length: $$(echo "$$COSIGN_PRIVATE_KEY" | wc -c) bytes"
+
 brew-test: ## Smoke test formula locally (macOS only)
 	@if command -v brew >/dev/null 2>&1; then \
 		echo "Testing Homebrew installation..."; \

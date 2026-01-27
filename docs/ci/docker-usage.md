@@ -250,8 +250,84 @@ docker run --rm -it --entrypoint /bin/bash \
 
 ---
 
+## Security Verification
+
+### Verify Image Signatures
+
+Before deploying Kekkai Docker images, **verify cryptographic signatures**:
+
+```bash
+# Install Cosign
+brew install cosign  # macOS
+# or download from https://github.com/sigstore/cosign/releases
+
+# Verify image signature
+cosign verify kademoslabs/kekkai:latest
+```
+
+Expected output:
+
+```json
+Verification for kademoslabs/kekkai:latest --
+The following checks were performed on each of these signatures:
+  - The cosign claims were validated
+  - The signatures were verified against the specified public key
+```
+
+### Download and Review SBOM
+
+Download Software Bill of Materials to understand dependencies:
+
+```bash
+# Download SBOM
+cosign download sbom kademoslabs/kekkai:latest > sbom.spdx.json
+
+# View dependencies
+cat sbom.spdx.json | jq '.packages[] | {name, version: .versionInfo}'
+```
+
+### Verify Image in CI/CD
+
+Add verification step to your deployment pipeline:
+
+```yaml
+# GitHub Actions example
+- name: Verify Kekkai image
+  run: |
+    cosign verify kademoslabs/kekkai:latest
+
+- name: Deploy Kekkai
+  run: |
+    docker run kademoslabs/kekkai:latest scan
+```
+
+For detailed verification procedures, see [Docker Verification Guide](docker-verification.md).
+
+---
+
+## Security Scanning
+
+All published Docker images are scanned for vulnerabilities with Trivy:
+
+- ✅ **Zero HIGH or CRITICAL vulnerabilities** guaranteed
+- ✅ **Scan results** available in GitHub Security tab
+- ✅ **SBOM** generated for all releases
+- ✅ **Cryptographically signed** with Cosign
+
+View scan results:
+
+1. Go to https://github.com/kademoslabs/kekkai/security
+2. Click "Code scanning alerts"
+3. Filter by "trivy-container-scan"
+
+For more details, see [Docker Security Guide](docker-security.md).
+
+---
+
 ## Related Documentation
 
+- [Docker Security Guide](docker-security.md) - Security scanning, signing, SBOM
+- [Docker Verification Guide](docker-verification.md) - How to verify image signatures
 - [CI Mode Guide](ci-mode.md) - Policy enforcement in CI/CD
 - [Kekkai Dojo Guide](../dojo/dojo.md) - DefectDojo integration
 - [Main README](../../README.md) - Project overview

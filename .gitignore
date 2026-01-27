@@ -54,6 +54,10 @@ Thumbs.db
 *.p12
 *.pfx
 
+# Cosign signing keys (NEVER commit!)
+.cosign-keys/
+cosign.pub
+
 # ---- Docker / compose local artifacts ----
 docker-compose.override.yml
 **/.docker/
