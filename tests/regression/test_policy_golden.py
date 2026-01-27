@@ -66,9 +66,9 @@ class TestPolicyGolden:
 
             assert result.passed == expected["passed"], f"Case '{name}': passed mismatch"
             assert result.exit_code == expected["exit_code"], f"Case '{name}': exit_code mismatch"
-            assert (
-                len(result.violations) == expected["violation_count"]
-            ), f"Case '{name}': violation_count mismatch"
+            assert len(result.violations) == expected["violation_count"], (
+                f"Case '{name}': violation_count mismatch"
+            )
 
     def test_no_findings_passes(self, golden_cases: list[dict[str, Any]]) -> None:
         """Explicit test for no findings case."""

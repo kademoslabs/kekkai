@@ -58,9 +58,9 @@ class TestTenantAPIContract:
             "license_token",
             "default_role",
         }
-        assert required_keys.issubset(
-            data.keys()
-        ), f"Missing keys: {required_keys - set(data.keys())}"
+        assert required_keys.issubset(data.keys()), (
+            f"Missing keys: {required_keys - set(data.keys())}"
+        )
         assert data["auth_method"] == "saml"
         assert isinstance(data["saml_config"], dict)
 
