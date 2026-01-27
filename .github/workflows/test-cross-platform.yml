@@ -1,14 +1,15 @@
 name: Cross-Platform Testing
 
+# Disabled: CircleCI handles all testing on Linux
+# Enable manually via workflow_dispatch if cross-platform testing is needed
 on:
-  pull_request:
-    branches:
-      - main
-      - develop
-  push:
-    branches:
-      - main
   workflow_dispatch:
+    inputs:
+      run_all_platforms:
+        description: 'Run on all platforms (ubuntu, windows, macos)'
+        required: false
+        default: 'false'
+        type: boolean
 
 permissions:
   contents: read
@@ -21,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: ${{ github.event.inputs.run_all_platforms == 'true' && fromJSON('["ubuntu-latest", "windows-latest", "macos-latest"]') || fromJSON('["ubuntu-latest"]') }}
         python-version: ["3.12"]
 
     steps:

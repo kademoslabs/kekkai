@@ -107,9 +107,9 @@ class TestChocolateyNuspecRegression:
         }
 
         actual_fields = set(child_tags)
-        assert expected_fields.issubset(
-            actual_fields
-        ), f"Missing fields: {expected_fields - actual_fields}"
+        assert expected_fields.issubset(actual_fields), (
+            f"Missing fields: {expected_fields - actual_fields}"
+        )
 
     @pytest.mark.regression
     def test_nuspec_xml_namespace_stable(self) -> None:

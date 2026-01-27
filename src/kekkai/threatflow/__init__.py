@@ -17,6 +17,13 @@ from .artifacts import (
 )
 from .chunking import ChunkingConfig, FileChunk, chunk_files
 from .core import ThreatFlow, ThreatFlowConfig, ThreatFlowResult
+from .mermaid import (
+    MermaidDFDGenerator,
+    MermaidEdge,
+    MermaidNode,
+    NodeType,
+    generate_dfd_mermaid,
+)
 from .model_adapter import (
     LocalModelAdapter,
     MockModelAdapter,
@@ -26,7 +33,19 @@ from .model_adapter import (
 )
 from .prompts import PromptBuilder, STRIDECategory
 from .redaction import ThreatFlowRedactor
-from .sanitizer import InjectionPattern, Sanitizer, SanitizeResult
+from .sanitizer import (
+    ClassifierResult,
+    DefenseLayer,
+    InjectionClassifier,
+    InjectionPattern,
+    InjectionRisk,
+    OutputValidationResult,
+    SanitizeConfig,
+    Sanitizer,
+    SanitizeResult,
+    TieredSanitizer,
+    TieredSanitizeResult,
+)
 
 __all__ = [
     # Core
@@ -57,4 +76,19 @@ __all__ = [
     "Sanitizer",
     "SanitizeResult",
     "InjectionPattern",
+    "InjectionRisk",
+    # Tiered Sanitizer (Milestone 5)
+    "TieredSanitizer",
+    "TieredSanitizeResult",
+    "SanitizeConfig",
+    "DefenseLayer",
+    "InjectionClassifier",
+    "ClassifierResult",
+    "OutputValidationResult",
+    # Mermaid DFD (Milestone 3)
+    "MermaidDFDGenerator",
+    "MermaidNode",
+    "MermaidEdge",
+    "NodeType",
+    "generate_dfd_mermaid",
 ]

@@ -15,6 +15,13 @@ def config_path() -> Path:
     return app_base_dir() / "kekkai.toml"
 
 
+def bin_dir() -> Path:
+    """Get the directory for installed tool binaries."""
+    path = app_base_dir() / "bin"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def ensure_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 

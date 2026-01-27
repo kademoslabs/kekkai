@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import platform
 import stat
 import sys
 from pathlib import Path
@@ -14,6 +15,10 @@ from kekkai.scanners.backends import docker_available
 
 
 @pytest.mark.integration
+@pytest.mark.skipif(
+    platform.system() == "Windows",
+    reason="Fake binaries use shebang which doesn't work on Windows",
+)
 class TestNativeModeIntegration:
     """Integration tests for native mode scanner execution.
 

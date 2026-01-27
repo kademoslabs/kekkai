@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 PY := python3
 
-.PHONY: setup fmt lint test unit integration regression sec ci ci-quick build sbom release clean pipx-test docker-image docker-test brew-test native-test windows-unit windows-integration windows-test
+.PHONY: setup fmt lint test unit integration regression sec ci ci-quick build sbom release clean pipx-test docker-image docker-test brew-test native-test windows-unit windows-integration windows-test slsa-test slsa-verify vscode-setup vscode-build vscode-test vscode-lint vscode-package
 
 setup:
 	python3 -m pip install -U pip wheel
@@ -186,6 +186,39 @@ native-test: ## Test native mode scanner backends
 	pytest -m "integration" tests/integration/test_kekkai_native_mode.py -v
 	pytest -m "regression" tests/regression/test_native_command_manifest.py -v
 
+installer-test: ## Test tool installer module
+	pytest tests/test_installer_*.py -v --cov=src/kekkai/installer --cov-report=term-missing
+	pytest -m "integration" tests/integration/test_installer_e2e.py -v
+	pytest -m "regression" tests/regression/test_installer_backends.py -v
+
+slsa-test: ## Test SLSA provenance verification module
+	pytest tests/test_slsa_provenance.py -v --cov=src/kekkai_core/slsa --cov-report=term-missing
+	pytest -m "integration" tests/integration/test_slsa_verification.py -v
+	pytest -m "regression" tests/regression/test_slsa_backwards_compat.py -v
+
+github-test: ## Test GitHub PR commenter module
+	pytest tests/test_github_commenter_*.py -v --cov=src/kekkai/github --cov-report=term-missing
+	pytest -m "integration" tests/integration/test_github_pr_api.py -v
+	pytest -m "regression" tests/regression/test_github_commenter_json_compat.py -v
+
+slsa-verify: ## Verify SLSA provenance for a release artifact (usage: make slsa-verify ARTIFACT=dist/kekkai-1.0.0.whl)
+	@if [ -z "$(ARTIFACT)" ]; then \
+		echo "Usage: make slsa-verify ARTIFACT=<path-to-artifact>"; \
+		exit 1; \
+	fi
+	@if ! command -v slsa-verifier >/dev/null 2>&1; then \
+		echo "slsa-verifier not installed. Install: https://github.com/slsa-framework/slsa-verifier"; \
+		exit 1; \
+	fi
+	slsa-verifier verify-artifact "$(ARTIFACT)" \
+		--provenance-path "$(ARTIFACT).intoto.jsonl" \
+		--source-uri github.com/kademoslabs/kekkai
+
+triage-test: ## Test triage TUI module
+	pytest tests/test_triage_*.py -v --cov=src/kekkai/triage --cov-report=term-missing --cov-fail-under=0
+	pytest -m "integration" tests/integration/test_triage_workflow.py -v
+	pytest -m "regression" tests/regression/test_triage_backwards_compat.py -v
+
 windows-unit: ## Windows unit tests
 	pytest tests/windows -v --cov=src/kekkai_core/windows --cov-report=term-missing
 
@@ -227,5 +260,30 @@ coverage-report: ## Generate comprehensive coverage report
 	pytest --cov=src --cov-report=html --cov-report=term-missing
 	@echo "✅ Coverage report generated in htmlcov/"
 
+vscode-setup: ## Install VS Code extension dependencies
+	@echo "Installing VS Code extension dependencies..."
+	cd apps/vscode-kekkai && npm install
+
+vscode-build: vscode-setup ## Build VS Code extension
+	@echo "Building VS Code extension..."
+	cd apps/vscode-kekkai && npm run compile
+
+vscode-test: vscode-build ## Run VS Code extension tests
+	@echo "Running VS Code extension tests..."
+	cd apps/vscode-kekkai && npm test
+	@echo "✅ VS Code extension tests completed"
+
+vscode-lint: vscode-setup ## Lint VS Code extension
+	cd apps/vscode-kekkai && npm run lint
+
+vscode-package: vscode-build ## Package VS Code extension as .vsix
+	@if ! command -v vsce >/dev/null 2>&1; then \
+		echo "Installing vsce..."; \
+		npm install -g @vscode/vsce; \
+	fi
+	cd apps/vscode-kekkai && vsce package
+	@echo "✅ Extension packaged in apps/vscode-kekkai/*.vsix"
+
 clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage coverage.xml dist build *.egg-info src/*.egg-info .benchmarks htmlcov
+	rm -rf apps/vscode-kekkai/out apps/vscode-kekkai/node_modules apps/vscode-kekkai/*.vsix

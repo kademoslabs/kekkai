@@ -12,6 +12,15 @@ from typing import cast
 from . import dojo, manifest
 from .config import ConfigOverrides, DojoSettings, PolicySettings, load_config
 from .dojo_import import DojoConfig, import_results_to_dojo
+from .output import (
+    ScanSummaryRow,
+    console,
+    print_quick_start,
+    print_scan_summary,
+    sanitize_error,
+    sanitize_for_terminal,
+    splash,
+)
 from .paths import app_base_dir, config_path, ensure_dir, is_within_base, safe_join
 from .policy import (
     EXIT_SCAN_ERROR,
@@ -103,6 +112,40 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Path for policy result JSON output",
     )
 
+    # GitHub PR comment options
+    scan_parser.add_argument(
+        "--pr-comment",
+        action="store_true",
+        help="Post findings as GitHub PR review comments",
+    )
+    scan_parser.add_argument(
+        "--github-token",
+        type=str,
+        help="GitHub token (or set GITHUB_TOKEN env var)",
+    )
+    scan_parser.add_argument(
+        "--pr-number",
+        type=int,
+        help="PR number to comment on (auto-detected in GitHub Actions)",
+    )
+    scan_parser.add_argument(
+        "--github-repo",
+        type=str,
+        help="GitHub repository (owner/repo, auto-detected in GitHub Actions)",
+    )
+    scan_parser.add_argument(
+        "--max-comments",
+        type=int,
+        default=50,
+        help="Maximum PR comments to post (default: 50)",
+    )
+    scan_parser.add_argument(
+        "--comment-severity",
+        type=str,
+        default="medium",
+        help="Minimum severity for PR comments (default: medium)",
+    )
+
     dojo_parser = subparsers.add_parser("dojo", help="manage local DefectDojo stack")
     dojo_subparsers = dojo_parser.add_subparsers(dest="dojo_command")
 
@@ -160,6 +203,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Disable prompt injection sanitization (NOT RECOMMENDED)",
     )
 
+    # Triage TUI subcommand
+    triage_parser = subparsers.add_parser("triage", help="interactively triage security findings")
+    triage_parser.add_argument(
+        "--input",
+        type=str,
+        help="Path to findings JSON file (from scan output)",
+    )
+    triage_parser.add_argument(
+        "--output",
+        type=str,
+        help="Path for .kekkaiignore output (default: .kekkaiignore)",
+    )
+
     parsed = parser.parse_args(args)
     if parsed.command == "init":
         return _command_init(parsed.config, parsed.force)
@@ -179,11 +235,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             parsed.ci,
             parsed.fail_on,
             parsed.output,
+            pr_comment=parsed.pr_comment,
+            github_token=parsed.github_token,
+            pr_number=parsed.pr_number,
+            github_repo=parsed.github_repo,
+            max_comments=parsed.max_comments,
+            comment_severity=parsed.comment_severity,
         )
     if parsed.command == "dojo":
         return _command_dojo(parsed)
     if parsed.command == "threatflow":
         return _command_threatflow(parsed)
+    if parsed.command == "triage":
+        return _command_triage(parsed)
 
     parser.print_help()
     return 1
@@ -193,10 +257,10 @@ def _handle_no_args() -> int:
     cfg_path = config_path()
     if not cfg_path.exists():
         return _command_init(None, False)
-    print(_splash())
-    print("Config exists. Run one of:")
-    print("  kekkai scan")
-    print("  kekkai init --force")
+    console.print(splash())
+    console.print("Config exists. Run one of:")
+    console.print("  [green]kekkai scan[/green]")
+    console.print("  [green]kekkai init --force[/green]")
     return 0
 
 
@@ -212,8 +276,9 @@ def _command_init(config_override: str | None, force: bool) -> int:
     ensure_dir(cfg_path.parent)
 
     cfg_path.write_text(load_config_text(base_dir))
-    print(_splash())
-    print(f"Initialized config at {cfg_path}")
+    console.print(splash())
+    console.print(f"Initialized config at [cyan]{cfg_path}[/cyan]")
+    console.print(print_quick_start())
     return 0
 
 
@@ -232,6 +297,13 @@ def _command_scan(
     ci_mode: bool = False,
     fail_on_override: str | None = None,
     output_path: str | None = None,
+    *,
+    pr_comment: bool = False,
+    github_token: str | None = None,
+    pr_number: int | None = None,
+    github_repo: str | None = None,
+    max_comments: int = 50,
+    comment_severity: str = "medium",
 ) -> int:
     cfg_path = _resolve_config_path(config_override)
     if not cfg_path.exists():
@@ -312,21 +384,24 @@ def _command_scan(
                 falco_enabled=falco_enabled,
             )
             if scanner is None:
-                print(f"Unknown scanner: {name}")
+                console.print(f"[warning]Unknown scanner: {sanitize_for_terminal(name)}[/warning]")
                 continue
 
             scanners_map[name] = scanner
-            print(f"Running {name}...")
+            console.print(f"Running [cyan]{sanitize_for_terminal(name)}[/cyan]...")
             scan_result = scanner.run(ctx)
             scan_results.append(scan_result)
             if not scan_result.success:
-                print(f"  {name} failed: {scan_result.error}")
+                err_msg = sanitize_error(scan_result.error or "Unknown error")
+                console.print(f"  [danger]{sanitize_for_terminal(name)} failed:[/danger] {err_msg}")
                 # For ZAP/Falco: failures should not be hidden
                 if name in ("zap", "falco"):
                     status_ok = False
             else:
                 deduped = dedupe_findings(scan_result.findings)
-                print(f"  {name}: {len(deduped)} findings")
+                console.print(
+                    f"  [success]{sanitize_for_terminal(name)}:[/success] {len(deduped)} findings"
+                )
 
         # Import to DefectDojo if requested
         if import_dojo or (cfg.dojo and cfg.dojo.enabled):
@@ -336,7 +411,7 @@ def _command_scan(
                 dojo_api_key_override,
             )
             if dojo_cfg and dojo_cfg.api_key:
-                print("Importing to DefectDojo...")
+                console.print("Importing to DefectDojo...")
                 import_results = import_results_to_dojo(
                     config=dojo_cfg,
                     results=scan_results,
@@ -347,11 +422,14 @@ def _command_scan(
                 for ir in import_results:
                     if ir.success:
                         created, closed = ir.findings_created, ir.findings_closed
-                        print(f"  Imported: {created} created, {closed} closed")
+                        console.print(
+                            f"  [success]Imported:[/success] {created} created, {closed} closed"
+                        )
                     else:
-                        print(f"  Import failed: {ir.error}")
+                        err = sanitize_error(ir.error or "")
+                        console.print(f"  [danger]Import failed:[/danger] {err}")
             else:
-                print("DefectDojo import skipped: no API key configured")
+                console.print("[muted]DefectDojo import skipped: no API key configured[/muted]")
 
     finished_at = _now_iso()
     run_manifest = manifest.build_manifest(
@@ -373,6 +451,17 @@ def _command_scan(
         elif scan_res.error:
             scan_errors.append(f"{scan_res.scanner}: {scan_res.error}")
 
+    # Post PR comments if requested
+    if pr_comment and all_findings:
+        _post_pr_comments(
+            all_findings,
+            github_token=github_token,
+            pr_number=pr_number,
+            github_repo=github_repo,
+            max_comments=max_comments,
+            min_severity=comment_severity,
+        )
+
     # Apply policy in CI mode
     if ci_mode or fail_on_override:
         policy_config = _resolve_policy_config(cfg.policy, fail_on_override, ci_mode)
@@ -385,10 +474,16 @@ def _command_scan(
         # Print summary
         _print_policy_summary(policy_result)
 
-        print(f"Run complete: {run_dir}")
+        # Print scan summary table
+        _print_scan_summary_table(scan_results)
+
+        console.print(f"Run complete: [cyan]{run_dir}[/cyan]")
         return policy_result.exit_code
 
-    print(f"Run complete: {run_dir}")
+    # Print scan summary table
+    _print_scan_summary_table(scan_results)
+
+    console.print(f"Run complete: [cyan]{run_dir}[/cyan]")
     return 0 if status_ok else EXIT_SCAN_ERROR
 
 
@@ -437,26 +532,132 @@ def _resolve_policy_config(
     return default_ci_policy()
 
 
+def _print_scan_summary_table(scan_results: list[ScanResult]) -> None:
+    """Print scan results summary table."""
+    if not scan_results:
+        return
+
+    rows = [
+        ScanSummaryRow(
+            scanner=r.scanner,
+            success=r.success,
+            findings_count=len(dedupe_findings(r.findings)) if r.success else 0,
+            duration_ms=r.duration_ms,
+        )
+        for r in scan_results
+    ]
+    console.print(print_scan_summary(rows))
+
+
 def _print_policy_summary(result: PolicyResult) -> None:
     """Print policy evaluation summary to stdout."""
     counts = result.counts
-    print(f"\nPolicy Evaluation: {'PASSED' if result.passed else 'FAILED'}")
-    print(f"  Findings: {counts.total} total")
-    print(f"    Critical: {counts.critical}")
-    print(f"    High: {counts.high}")
-    print(f"    Medium: {counts.medium}")
-    print(f"    Low: {counts.low}")
-    print(f"    Info: {counts.info}")
+    status = "[success]PASSED[/success]" if result.passed else "[danger]FAILED[/danger]"
+    console.print(f"\nPolicy Evaluation: {status}")
+    console.print(f"  Findings: {counts.total} total")
+    console.print(f"    [danger]Critical:[/danger] {counts.critical}")
+    console.print(f"    [warning]High:[/warning] {counts.high}")
+    console.print(f"    [info]Medium:[/info] {counts.medium}")
+    console.print(f"    Low: {counts.low}")
+    console.print(f"    [muted]Info:[/muted] {counts.info}")
 
     if result.violations:
-        print("  Violations:")
+        console.print("  [danger]Violations:[/danger]")
         for v in result.violations:
-            print(f"    - {v.message}")
+            console.print(f"    - {sanitize_for_terminal(v.message)}")
 
     if result.scan_errors:
-        print("  Scan Errors:")
+        console.print("  [warning]Scan Errors:[/warning]")
         for e in result.scan_errors:
-            print(f"    - {e}")
+            console.print(f"    - {sanitize_error(e)}")
+
+
+def _post_pr_comments(
+    findings: list[Finding],
+    *,
+    github_token: str | None,
+    pr_number: int | None,
+    github_repo: str | None,
+    max_comments: int,
+    min_severity: str,
+) -> None:
+    """Post findings as GitHub PR review comments."""
+    # Resolve token from env if not provided
+    token = github_token or os.environ.get("GITHUB_TOKEN")
+    if not token:
+        console.print("[warning]PR comment requested but no GitHub token provided[/warning]")
+        return
+
+    # Auto-detect PR number from GitHub Actions event
+    if pr_number is None:
+        pr_number = _detect_pr_number()
+    if pr_number is None:
+        console.print("[warning]PR comment requested but no PR number detected[/warning]")
+        return
+
+    # Resolve owner/repo
+    owner, repo = _resolve_github_repo(github_repo)
+    if not owner or not repo:
+        console.print("[warning]PR comment requested but repository not detected[/warning]")
+        return
+
+    try:
+        from .github import GitHubConfig
+        from .github import post_pr_comments as _post_comments
+
+        config = GitHubConfig(
+            token=token,
+            owner=owner,
+            repo=repo,
+            pr_number=pr_number,
+        )
+        result = _post_comments(
+            findings,
+            config,
+            max_comments=max_comments,
+            min_severity=min_severity,
+        )
+        if result.success:
+            console.print(f"[success]Posted {result.comments_posted} PR comment(s)[/success]")
+            if result.review_url:
+                console.print(f"  Review: [link]{result.review_url}[/link]")
+        else:
+            for err in result.errors:
+                console.print(f"[warning]PR comment error: {sanitize_error(err)}[/warning]")
+    except Exception as e:
+        console.print(f"[warning]Failed to post PR comments: {sanitize_error(str(e))}[/warning]")
+
+
+def _detect_pr_number() -> int | None:
+    """Auto-detect PR number from GitHub Actions environment."""
+    import json as _json
+
+    event_path = os.environ.get("GITHUB_EVENT_PATH")
+    if not event_path:
+        return None
+
+    try:
+        with open(event_path) as f:
+            event: dict[str, dict[str, int]] = _json.load(f)
+        pr = event.get("pull_request", {})
+        return pr.get("number")
+    except (OSError, ValueError, KeyError):
+        return None
+
+
+def _resolve_github_repo(override: str | None) -> tuple[str | None, str | None]:
+    """Resolve GitHub owner/repo from override or environment."""
+    if override and "/" in override:
+        parts = override.split("/", 1)
+        return parts[0], parts[1]
+
+    # Try GITHUB_REPOSITORY env var (set in GitHub Actions)
+    repo_env = os.environ.get("GITHUB_REPOSITORY")
+    if repo_env and "/" in repo_env:
+        parts = repo_env.split("/", 1)
+        return parts[0], parts[1]
+
+    return None, None
 
 
 def _create_scanner(
@@ -719,6 +920,27 @@ def _threatflow_banner() -> str:
     )
 
 
+def _command_triage(parsed: argparse.Namespace) -> int:
+    """Run interactive triage TUI."""
+    from .triage import run_triage
+
+    input_path_str = cast(str | None, getattr(parsed, "input", None))
+    output_path_str = cast(str | None, getattr(parsed, "output", None))
+
+    input_path = Path(input_path_str).expanduser().resolve() if input_path_str else None
+    output_path = Path(output_path_str).expanduser().resolve() if output_path_str else None
+
+    if input_path and not input_path.exists():
+        console.print(f"[danger]Error:[/danger] Input file not found: {input_path}")
+        return 1
+
+    console.print("[bold cyan]Kekkai Triage[/bold cyan] - Interactive Finding Review")
+    console.print("Use j/k to navigate, f=false positive, c=confirmed, d=deferred")
+    console.print("Press Ctrl+S to save, q to quit\n")
+
+    return run_triage(input_path=input_path, output_path=output_path)
+
+
 def _resolve_dojo_compose_dir(parsed: argparse.Namespace) -> str | None:
     compose_dir = cast(str | None, getattr(parsed, "compose_dir", None))
     if compose_dir:
@@ -806,14 +1028,6 @@ def _generate_run_id() -> str:
 
 def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
-
-
-def _splash() -> str:
-    return (
-        "Kekkai — Security that moves at developer speed.\n"
-        "===============================================\n"
-        "[shield]>_\n"
-    )
 
 
 def load_config_text(base_dir: Path) -> str:

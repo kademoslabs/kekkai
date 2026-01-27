@@ -4,6 +4,10 @@
 #
 #    pip-compile --output-file=requirements/dev.txt requirements/dev.in
 #
+attrs==25.4.0
+    # via
+    #   jsonschema
+    #   referencing
 bandit==1.9.2
     # via -r requirements/dev.in
 boolean-py==5.0
@@ -38,6 +42,10 @@ iniconfig==2.3.0
     # via pytest
 jinja2==3.1.6
     # via -r requirements/dev.in
+jsonschema==4.26.0
+    # via -r requirements/dev.in
+jsonschema-specifications==2025.9.1
+    # via jsonschema
 librt==0.7.8
     # via mypy
 license-expression==30.4.4
@@ -104,14 +112,24 @@ pyyaml==6.0.3
     # via
     #   bandit
     #   pre-commit
+referencing==0.37.0
+    # via
+    #   jsonschema
+    #   jsonschema-specifications
+    #   types-jsonschema
 requests==2.32.5
     # via
     #   cachecontrol
     #   pip-audit
 rich==14.2.0
     # via
+    #   -r requirements/dev.in
     #   bandit
     #   pip-audit
+rpds-py==0.30.0
+    # via
+    #   jsonschema
+    #   referencing
 ruff==0.14.13
     # via -r requirements/dev.in
 sortedcontainers==2.4.0
@@ -124,12 +142,15 @@ tomli-w==1.2.0
     # via pip-audit
 types-jinja2==2.11.9
     # via -r requirements/dev.in
+types-jsonschema==4.26.0.20260109
+    # via -r requirements/dev.in
 types-markupsafe==1.1.10
     # via types-jinja2
 typing-extensions==4.15.0
     # via
     #   cyclonedx-python-lib
     #   mypy
+    #   referencing
 urllib3==2.6.3
     # via requests
 virtualenv==20.36.1

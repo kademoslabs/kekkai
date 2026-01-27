@@ -78,7 +78,8 @@ class TestThreatFlowE2E:
 
         assert result.success
         assert result.files_processed > 0
-        assert len(result.output_files) == 4  # THREATS.md, DATAFLOWS.md, ASSUMPTIONS.md, JSON
+        # THREATS.md, DATAFLOWS.md, ASSUMPTIONS.md, JSON, DATAFLOW.mmd
+        assert len(result.output_files) == 5
 
     def test_generates_all_artifacts(
         self, fixture_repo: Path, mock_adapter: MockModelAdapter, tmp_path: Path
@@ -94,6 +95,7 @@ class TestThreatFlowE2E:
         assert (tmp_path / "DATAFLOWS.md").exists()
         assert (tmp_path / "ASSUMPTIONS.md").exists()
         assert (tmp_path / "threat-model.json").exists()
+        assert (tmp_path / "DATAFLOW.mmd").exists()  # Mermaid DFD (Milestone 3)
 
     def test_threats_md_has_content(
         self, fixture_repo: Path, mock_adapter: MockModelAdapter, tmp_path: Path

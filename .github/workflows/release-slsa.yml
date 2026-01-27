@@ -1,0 +1,134 @@
+name: Release with SLSA Provenance
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+  id-token: write
+  packages: write
+  attestations: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      hashes: ${{ steps.hash.outputs.hashes }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip wheel build
+
+      - name: Build Python package
+        run: |
+          python -m build
+
+      - name: Generate hashes
+        id: hash
+        run: |
+          cd dist
+          sha256sum * > checksums.txt
+          echo "hashes=$(base64 -w0 checksums.txt)" >> $GITHUB_OUTPUT
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  provenance:
+    needs: build
+    permissions:
+      actions: read
+      id-token: write
+      contents: write
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0
+    with:
+      base64-subjects: ${{ needs.build.outputs.hashes }}
+      upload-assets: true
+
+  sign-and-publish:
+    needs: [build, provenance]
+    runs-on: ubuntu-latest
+    environment: pypi
+
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: v2.2.3
+
+      - name: Sign artifacts with Cosign
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+        run: |
+          for f in dist/*.whl dist/*.tar.gz; do
+            if [ -f "$f" ]; then
+              echo "Signing: $f"
+              echo "$COSIGN_PRIVATE_KEY" > cosign.key
+              cosign sign-blob --yes --key cosign.key "$f" --output-signature "${f}.sig"
+              rm -f cosign.key
+            fi
+          done
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install twine
+        run: pip install twine
+
+      - name: Publish to PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          twine upload dist/*.whl dist/*.tar.gz
+
+      - name: Upload signatures to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for sig in dist/*.sig; do
+            if [ -f "$sig" ]; then
+              gh release upload "${{ github.ref_name }}" "$sig" --clobber
+            fi
+          done
+
+      - name: Generate release summary
+        run: |
+          echo "## SLSA Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          ls -la dist/ >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Security" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ SLSA Level 3 provenance generated" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Artifacts signed with Cosign" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Published to PyPI" >> $GITHUB_STEP_SUMMARY

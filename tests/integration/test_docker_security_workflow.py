@@ -1,12 +1,19 @@
 """Integration tests for Docker security workflow."""
 
+import platform
 import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.integration
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.skipif(
+        platform.system() == "Windows",
+        reason="Docker Linux containers not available on Windows CI",
+    ),
+]
 
 
 @pytest.fixture

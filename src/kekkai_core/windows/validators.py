@@ -187,7 +187,7 @@ def validate_chocolatey_nuspec(nuspec_path: Path) -> tuple[bool, list[str]]:
     Returns:
         Tuple of (is_valid, list_of_errors)
     """
-    import xml.etree.ElementTree as ET  # noqa: S405
+    import xml.etree.ElementTree as ET  # nosec B405 - validates local trusted nuspec files
 
     errors: list[str] = []
 

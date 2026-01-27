@@ -112,34 +112,34 @@ class TestSensitivePermissionsGolden:
     def test_delete_tenant_only_for_tenant_admin(self) -> None:
         """Verify DELETE_TENANT is restricted to tenant_admin."""
         for role in [Role.VIEWER, Role.ANALYST, Role.ADMIN]:
-            assert (
-                Permission.DELETE_TENANT not in ROLE_PERMISSIONS[role]
-            ), f"{role.value} should not have DELETE_TENANT"
+            assert Permission.DELETE_TENANT not in ROLE_PERMISSIONS[role], (
+                f"{role.value} should not have DELETE_TENANT"
+            )
         assert Permission.DELETE_TENANT in ROLE_PERMISSIONS[Role.TENANT_ADMIN]
 
     def test_manage_saml_only_for_tenant_admin(self) -> None:
         """Verify MANAGE_SAML_CONFIG is restricted to tenant_admin."""
         for role in [Role.VIEWER, Role.ANALYST, Role.ADMIN]:
-            assert (
-                Permission.MANAGE_SAML_CONFIG not in ROLE_PERMISSIONS[role]
-            ), f"{role.value} should not have MANAGE_SAML_CONFIG"
+            assert Permission.MANAGE_SAML_CONFIG not in ROLE_PERMISSIONS[role], (
+                f"{role.value} should not have MANAGE_SAML_CONFIG"
+            )
         assert Permission.MANAGE_SAML_CONFIG in ROLE_PERMISSIONS[Role.TENANT_ADMIN]
 
     def test_manage_users_requires_admin_or_higher(self) -> None:
         """Verify MANAGE_USERS requires admin or higher."""
         for role in [Role.VIEWER, Role.ANALYST]:
-            assert (
-                Permission.MANAGE_USERS not in ROLE_PERMISSIONS[role]
-            ), f"{role.value} should not have MANAGE_USERS"
+            assert Permission.MANAGE_USERS not in ROLE_PERMISSIONS[role], (
+                f"{role.value} should not have MANAGE_USERS"
+            )
         assert Permission.MANAGE_USERS in ROLE_PERMISSIONS[Role.ADMIN]
         assert Permission.MANAGE_USERS in ROLE_PERMISSIONS[Role.TENANT_ADMIN]
 
     def test_view_audit_logs_requires_admin_or_higher(self) -> None:
         """Verify VIEW_AUDIT_LOGS requires admin or higher."""
         for role in [Role.VIEWER, Role.ANALYST]:
-            assert (
-                Permission.VIEW_AUDIT_LOGS not in ROLE_PERMISSIONS[role]
-            ), f"{role.value} should not have VIEW_AUDIT_LOGS"
+            assert Permission.VIEW_AUDIT_LOGS not in ROLE_PERMISSIONS[role], (
+                f"{role.value} should not have VIEW_AUDIT_LOGS"
+            )
         assert Permission.VIEW_AUDIT_LOGS in ROLE_PERMISSIONS[Role.ADMIN]
 
 

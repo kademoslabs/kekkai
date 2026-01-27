@@ -1,0 +1,50 @@
+name: 'Kekkai PR Commenter'
+description: 'Post Kekkai security scan findings as GitHub PR review comments'
+author: 'Kademos Labs'
+
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  results-file:
+    description: 'Path to scan results JSON file'
+    required: true
+  github-token:
+    description: 'GitHub token for posting comments'
+    required: true
+    default: ${{ github.token }}
+  max-comments:
+    description: 'Maximum number of comments to post'
+    required: false
+    default: '50'
+  min-severity:
+    description: 'Minimum severity level for comments (critical, high, medium, low)'
+    required: false
+    default: 'medium'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install Kekkai
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+
+    - name: Post PR Comments
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        kekkai scan \
+          --repo . \
+          --pr-comment \
+          --max-comments ${{ inputs.max-comments }} \
+          --comment-severity ${{ inputs.min-severity }} \
+          --output /dev/null || true

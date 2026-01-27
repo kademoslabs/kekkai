@@ -23,5 +23,9 @@ repos:
         additional_dependencies:
           - pytest
           - types-Jinja2
+          - rich>=13.0.0
+          - jsonschema>=4.20.0
+          - types-jsonschema
+          - textual>=0.50.0
         args: ["--config-file=pyproject.toml"]
         files: ^(src|tests)/.*\.py$

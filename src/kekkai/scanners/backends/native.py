@@ -84,6 +84,15 @@ def detect_tool(
         ToolVersionError: If version doesn't meet minimum requirement
     """
     tool_path = shutil.which(name)
+
+    # Also check ~/.kekkai/bin/ for installed tools
+    if not tool_path:
+        from kekkai.paths import bin_dir
+
+        kekkai_bin = bin_dir() / name
+        if kekkai_bin.exists() and os.access(kekkai_bin, os.X_OK):
+            tool_path = str(kekkai_bin)
+
     if not tool_path:
         raise ToolNotFoundError(f"{name} not found in PATH")
 
