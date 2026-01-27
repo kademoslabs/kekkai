@@ -23,10 +23,15 @@ jobs:
             . .venv/bin/activate
             make native-test
       - run:
-          name: Windows integration tests
+          name: Windows unit tests
           command: |
             . .venv/bin/activate
             make windows-unit
+      - run:
+          name: Chocolatey unit tests
+          command: |
+            . .venv/bin/activate
+            make chocolatey-unit
       - run:
           name: pipx install test
           command: |
@@ -59,6 +64,11 @@ jobs:
           command: |
             . .venv/bin/activate
             make windows-test
+      - run:
+          name: Chocolatey tests
+          command: |
+            . .venv/bin/activate
+            make chocolatey-test
 
   build_release:
     docker:

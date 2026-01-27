@@ -83,10 +83,45 @@ choco install kekkai -y
 kekkai --version
 ```
 
+#### Silent Installation (Enterprise)
+
+For automated/scripted deployments:
+
+```powershell
+# Silent install without prompts
+choco install kekkai -y --force
+
+# Install with logging
+choco install kekkai -y --log-file="C:\Logs\kekkai-install.log"
+
+# Install specific version
+choco install kekkai --version 0.0.1 -y
+```
+
+#### Offline Installation
+
+For air-gapped or restricted environments:
+
+```powershell
+# 1. On internet-connected machine: Download package
+choco download kekkai
+
+# 2. Transfer kekkai.{version}.nupkg to offline machine
+
+# 3. On offline machine: Install from local file
+choco install kekkai -s . -y
+```
+
+**Note**: Python must be pre-installed on the offline machine.
+
 #### Update Kekkai
 
 ```powershell
+# Update to latest version
 choco upgrade kekkai -y
+
+# Check for updates without installing
+choco outdated
 ```
 
 #### Uninstall
@@ -94,6 +129,35 @@ choco upgrade kekkai -y
 ```powershell
 choco uninstall kekkai -y
 ```
+
+#### Enterprise Deployment Options
+
+**Group Policy Deployment**:
+1. Create startup script: `choco install kekkai -y`
+2. Deploy via GPO to target machines
+
+**SCCM/Intune**:
+1. Download `.nupkg` file
+2. Create application package
+3. Deploy to device collections
+
+**Ansible**:
+```yaml
+- name: Install Kekkai via Chocolatey
+  win_chocolatey:
+    name: kekkai
+    state: present
+```
+
+#### Chocolatey Security Features
+
+- ✅ SHA256 checksum verification on download
+- ✅ Downloads from official GitHub releases only (HTTPS)
+- ✅ Python version validation before installation
+- ✅ No arbitrary code execution
+- ✅ Package moderated by Chocolatey community
+
+For more details, see [Chocolatey Integration Guide](../ci/chocolatey-integration.md).
 
 ---
 
@@ -149,6 +213,27 @@ pip install kekkai
 # Verify installation
 kekkai --version
 ```
+
+---
+
+---
+
+## Installation Method Comparison
+
+| Feature | Scoop | Chocolatey | pipx | pip |
+|---------|-------|------------|------|-----|
+| **Admin Required** | ❌ No | ✅ Yes | ❌ No | ⚠️  Maybe |
+| **Enterprise Support** | ⚠️  Limited | ✅ Excellent | ⚠️  Limited | ⚠️  Limited |
+| **Automatic Updates** | ✅ Yes | ✅ Yes | ✅ Yes | ❌ Manual |
+| **Offline Install** | ✅ Yes | ✅ Yes | ⚠️  Complex | ✅ Yes |
+| **Isolated Env** | ✅ Yes | ⚠️  System | ✅ Yes | ⚠️  Manual |
+| **Best For** | Developers | Enterprises | Python devs | Traditional |
+
+**Recommendation**:
+- **Developers**: Use **Scoop** (no admin, easy updates)
+- **Enterprises**: Use **Chocolatey** (GPO/SCCM deployment, centralized management)
+- **Python Developers**: Use **pipx** (isolated environments)
+- **Simple Setup**: Use **pip** (traditional Python package)
 
 ---
 

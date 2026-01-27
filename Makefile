@@ -97,10 +97,19 @@ windows-unit: ## Windows unit tests
 	pytest tests/windows -v --cov=src/kekkai_core/windows --cov-report=term-missing
 
 windows-integration: ## Windows integration tests
-	pytest tests/integration/test_scoop_*.py tests/integration/test_windows_*.py -v
+	pytest tests/integration/test_scoop_*.py tests/integration/test_windows_*.py tests/integration/test_chocolatey_*.py -v
 
 windows-test: windows-unit windows-integration ## All Windows tests
 	@echo "✅ All Windows tests passed"
+
+chocolatey-unit: ## Chocolatey unit tests
+	pytest tests/windows/test_chocolatey_*.py -v --cov=src/kekkai_core/windows --cov-append --cov-report=term-missing
+
+chocolatey-integration: ## Chocolatey integration tests
+	pytest tests/integration/test_chocolatey_*.py -v
+
+chocolatey-test: chocolatey-unit chocolatey-integration ## All Chocolatey tests
+	@echo "✅ All Chocolatey tests passed"
 
 clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage coverage.xml dist build *.egg-info src/*.egg-info

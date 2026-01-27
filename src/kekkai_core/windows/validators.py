@@ -198,7 +198,7 @@ def validate_chocolatey_nuspec(nuspec_path: Path) -> tuple[bool, list[str]]:
 
     # Parse XML
     try:
-        tree = ET.parse(nuspec_path)  # noqa: S314
+        tree = ET.parse(nuspec_path)  # noqa: S314  # nosec B314 - Local trusted file validation only
         root = tree.getroot()
     except ET.ParseError as e:
         errors.append(f"Invalid XML: {e}")
