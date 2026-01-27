@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import platform
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -181,6 +182,10 @@ class TestBackupRestoreIntegration:
 
 
 @pytest.mark.integration
+@pytest.mark.skipif(
+    platform.system() == "Windows",
+    reason="Backup/restore uses pg_dump/pg_restore which are not available on Windows CI",
+)
 class TestBackupRestoreWithMockedDatabase:
     """Integration tests with mocked database operations."""
 

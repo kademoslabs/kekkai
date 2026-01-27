@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import platform
 import shutil
 import socket
 import urllib.request
@@ -12,7 +13,13 @@ import pytest
 from kekkai import cli
 from kekkai.dojo import compose_command, load_env_file
 
-pytestmark = pytest.mark.integration
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.skipif(
+        platform.system() == "Windows",
+        reason="DefectDojo uses Docker Compose with Linux containers",
+    ),
+]
 
 
 def _get_free_port() -> int:

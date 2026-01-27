@@ -23,7 +23,7 @@ jobs:
       - name: Install Kekkai
         run: |
           python -m pip install --upgrade pip
-          pip install kekkai-cli
+          pip install -e .
 
       - name: Initialize Kekkai
         run: kekkai init

@@ -28,10 +28,13 @@ class TestPolicyGateIntegration:
     def temp_config(self, tmp_path: Path, temp_repo: Path) -> Path:
         """Create a temporary config file."""
         config = tmp_path / "kekkai.toml"
+        # Use forward slashes for TOML compatibility on Windows
+        repo_path_str = str(temp_repo).replace("\\", "/")
+        runs_path_str = str(tmp_path / "runs").replace("\\", "/")
         config.write_text(
             f"""
-repo_path = "{temp_repo}"
-run_base_dir = "{tmp_path / "runs"}"
+repo_path = "{repo_path_str}"
+run_base_dir = "{runs_path_str}"
 timeout_seconds = 60
 env_allowlist = ["PATH", "HOME"]
 """

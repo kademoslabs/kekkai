@@ -167,7 +167,7 @@ class TestWorkflowValidation:
         if not workflow_file.exists():
             pytest.skip("Workflow file not found")
 
-        content = workflow_file.read_text()
+        content = workflow_file.read_text(encoding="utf-8")
         assert "name: Trigger Distribution Updates" in content
         assert "on:" in content
         assert "jobs:" in content
@@ -179,7 +179,7 @@ class TestWorkflowValidation:
         if not workflow_file.exists():
             pytest.skip("Workflow file not found")
 
-        content = workflow_file.read_text()
+        content = workflow_file.read_text(encoding="utf-8")
 
         required_jobs = [
             "extract-metadata",
@@ -201,6 +201,6 @@ class TestWorkflowValidation:
         if not workflow_file.exists():
             pytest.skip("Workflow file not found")
 
-        content = workflow_file.read_text()
+        content = workflow_file.read_text(encoding="utf-8")
         assert "workflow_dispatch:" in content
         assert "inputs:" in content

@@ -17,6 +17,8 @@ import pytest
 @pytest.mark.integration
 def test_pipx_install_and_run(tmp_path: Path) -> None:
     """Test that pipx install works and basic commands execute correctly."""
+    import platform
+
     # Use project root for installation
     project_root = Path(__file__).parent.parent.parent
 
@@ -59,12 +61,19 @@ def test_pipx_install_and_run(tmp_path: Path) -> None:
         test_home = tmp_path / "kekkai_test_home"
         test_home.mkdir()
 
+        # On Windows, we need HOME and USERPROFILE set for pipx to work
+        env = os.environ.copy()
+        env["KEKKAI_HOME"] = str(test_home)
+        if platform.system() == "Windows":
+            env["HOME"] = str(tmp_path)
+            env["USERPROFILE"] = str(tmp_path)
+
         init_result = subprocess.run(  # noqa: S603  # nosec B603
             [sys.executable, "-m", "pipx", "run", "kekkai", "init"],
             capture_output=True,
             text=True,
             timeout=30,
-            env={"KEKKAI_HOME": str(test_home), "PATH": os.environ.get("PATH", "")},
+            env=env,
             check=False,
         )
         assert init_result.returncode == 0, f"init failed: {init_result.stderr}"
@@ -97,4 +106,11 @@ def test_pipx_available() -> None:
     if result.returncode != 0:
         pytest.skip("pipx not installed, skipping pipx tests")
 
-    assert "pipx" in result.stdout.lower(), "pipx version output unexpected"
+    # pipx --version may output just the version number (e.g., "1.8.0")
+    # or "pipx 1.8.0" depending on version
+    output = result.stdout.lower()
+    assert (
+        "pipx" in output
+        or result.stdout.strip().replace(".", "").isdigit()
+        or len(result.stdout.strip().split(".")) >= 2
+    ), "pipx version output unexpected"

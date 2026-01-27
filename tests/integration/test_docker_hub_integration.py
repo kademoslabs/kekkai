@@ -24,7 +24,7 @@ class TestDockerHubMetadata:
 
         dockerfile = Path("apps/kekkai/Dockerfile")
         assert dockerfile.exists()
-        content = dockerfile.read_text()
+        content = dockerfile.read_text(encoding="utf-8")
         assert "FROM" in content
         assert "python" in content.lower()
 
@@ -34,7 +34,7 @@ class TestDockerHubMetadata:
 
         readme = Path("README.md")
         assert readme.exists()
-        content = readme.read_text()
+        content = readme.read_text(encoding="utf-8")
         assert len(content) > 100
         assert "Kekkai" in content
 
@@ -63,7 +63,7 @@ class TestMultiArchSupport:
         from pathlib import Path
 
         dockerfile = Path("apps/kekkai/Dockerfile")
-        content = dockerfile.read_text()
+        content = dockerfile.read_text(encoding="utf-8")
 
         # Check for common arch-specific patterns that might break builds
         # This is a basic check - actual multi-arch build tested in CI
@@ -78,7 +78,7 @@ class TestImagePullability:
         from pathlib import Path
 
         readme = Path("README.md")
-        content = readme.read_text()
+        content = readme.read_text(encoding="utf-8")
 
         # Verify Docker Hub reference exists
         assert "docker" in content.lower()

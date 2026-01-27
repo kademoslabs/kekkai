@@ -9,10 +9,16 @@ Tests that kekkai Docker wrapper executes correctly with hardened security contr
 
 from __future__ import annotations
 
+import platform
 import subprocess  # nosec B404
 from pathlib import Path
 
 import pytest
+
+pytestmark = pytest.mark.skipif(
+    platform.system() == "Windows",
+    reason="Docker wrapper is a shell script that requires Linux/macOS",
+)
 
 
 @pytest.mark.integration
