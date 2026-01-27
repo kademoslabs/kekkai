@@ -12,7 +12,7 @@
 **Security that moves at developer speed.**
 *Local-first orchestration for Trivy, Semgrep, and DefectDojo.*
 
-**(Insert Hero GIF Here)**
+![Hero GIF](https://raw.githubusercontent.com/kademoslabs/assets/main/screenshots/kekkai-recording.gif)
 *> A terminal recording showing `kekkai scan` running, detecting a secret key via Gitleaks, and displaying a clean summary table.*
 
 ---
