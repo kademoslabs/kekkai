@@ -26,7 +26,7 @@ Stop fighting with Docker Compose. Start scanning in 30 seconds.
 **Option 1: pipx (Recommended - Isolated Environment)**
 
 ```bash
-pipx install kekkai
+pipx install kekkai-cli
 ```
 
 **Option 2: Homebrew (macOS/Linux)**
@@ -59,7 +59,7 @@ scoop install kekkai
 **Option 5: pip (Traditional)**
 
 ```bash
-pip install kekkai
+pip install kekkai-cli
 ```
 
 

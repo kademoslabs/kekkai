@@ -177,7 +177,7 @@ Restart your terminal after installing pipx.
 #### Install Kekkai
 
 ```powershell
-pipx install kekkai
+pipx install kekkai-cli
 
 # Verify installation
 kekkai --version
@@ -186,13 +186,13 @@ kekkai --version
 #### Update Kekkai
 
 ```powershell
-pipx upgrade kekkai
+pipx upgrade kekkai-cli
 ```
 
 #### Uninstall
 
 ```powershell
-pipx uninstall kekkai
+pipx uninstall kekkai-cli
 ```
 
 ---
@@ -203,12 +203,12 @@ pipx uninstall kekkai
 
 ```powershell
 # Install globally (may require admin)
-python -m pip install kekkai
+python -m pip install kekkai-cli
 
 # Or in a virtual environment
 python -m venv venv
 .\venv\Scripts\Activate.ps1
-pip install kekkai
+pip install kekkai-cli
 
 # Verify installation
 kekkai --version
@@ -554,7 +554,7 @@ $env:HTTP_PROXY = "http://proxy.company.com:8080"
 $env:HTTPS_PROXY = "http://proxy.company.com:8080"
 
 # Install via pip
-python -m pip install --proxy http://proxy.company.com:8080 kekkai
+python -m pip install --proxy http://proxy.company.com:8080 kekkai-cli
 ```
 
 ### Offline Installation
@@ -570,7 +570,7 @@ python -m pip install --proxy http://proxy.company.com:8080 kekkai
 
 ```powershell
 # If corporate SSL inspection causes issues
-python -m pip install --trusted-host pypi.org --trusted-host files.pythonhosted.org kekkai
+python -m pip install --trusted-host pypi.org --trusted-host files.pythonhosted.org kekkai-cli
 ```
 
 ---
@@ -592,13 +592,13 @@ choco upgrade kekkai -y
 ### pipx
 
 ```powershell
-pipx upgrade kekkai
+pipx upgrade kekkai-cli
 ```
 
 ### pip
 
 ```powershell
-python -m pip install --upgrade kekkai
+python -m pip install --upgrade kekkai-cli
 ```
 
 ---
@@ -620,13 +620,13 @@ choco uninstall kekkai -y
 ### pipx
 
 ```powershell
-pipx uninstall kekkai
+pipx uninstall kekkai-cli
 ```
 
 ### pip
 
 ```powershell
-python -m pip uninstall kekkai
+python -m pip uninstall kekkai-cli
 ```
 
 ---

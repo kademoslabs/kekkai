@@ -17,7 +17,7 @@ Kekkai is a local-first AppSec orchestration tool that unifies vulnerability sca
 
 ```bash
 # Install via pipx (recommended)
-pipx install kekkai
+pipx install kekkai-cli
 
 # Scan your project
 cd your-repo && kekkai scan
@@ -33,7 +33,7 @@ kekkai threatflow --repo . --model-mode local
 
 | Platform | Method | Command |
 |----------|--------|---------|
-| **Python** | pipx | `pipx install kekkai` |
+| **Python** | pipx | `pipx install kekkai-cli` |
 | **macOS/Linux** | Homebrew | `brew install kademoslabs/tap/kekkai` |
 | **Windows** | Scoop | `scoop install kademoslabs/kekkai` |
 | **Windows** | Chocolatey | `choco install kekkai` |

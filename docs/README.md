@@ -68,11 +68,11 @@ Kekkai supports multiple installation methods to fit your workflow:
 
 | Method | Best For | Command |
 |--------|----------|---------|
-| **pipx** | Isolated Python environments, recommended for local development | `pipx install kekkai` |
+| **pipx** | Isolated Python environments, recommended for local development | `pipx install kekkai-cli` |
 | **Homebrew** | macOS/Linux users who prefer native package managers | `brew install kademoslabs/tap/kekkai` |
 | **Scoop** | Windows users who prefer command-line package managers | `scoop install kademoslabs/kekkai` |
 | **Docker** | CI/CD pipelines, no local Python installation required | `./scripts/kekkai-docker --help` |
-| **pip** | Traditional Python environments | `pip install kekkai` |
+| **pip** | Traditional Python environments | `pip install kekkai-cli` |
 
 ### Detailed Installation Guides
 
