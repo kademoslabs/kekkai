@@ -17,6 +17,13 @@ from .artifacts import (
 )
 from .chunking import ChunkingConfig, FileChunk, chunk_files
 from .core import ThreatFlow, ThreatFlowConfig, ThreatFlowResult
+from .mermaid import (
+    MermaidDFDGenerator,
+    MermaidEdge,
+    MermaidNode,
+    NodeType,
+    generate_dfd_mermaid,
+)
 from .model_adapter import (
     LocalModelAdapter,
     MockModelAdapter,
@@ -78,4 +85,10 @@ __all__ = [
     "InjectionClassifier",
     "ClassifierResult",
     "OutputValidationResult",
+    # Mermaid DFD (Milestone 3)
+    "MermaidDFDGenerator",
+    "MermaidNode",
+    "MermaidEdge",
+    "NodeType",
+    "generate_dfd_mermaid",
 ]

@@ -3,9 +3,11 @@
 Generates structured Markdown artifacts:
 - THREATS.md: Identified threats with STRIDE categorization
 - DATAFLOWS.md: Data flow diagram description
+- DATAFLOW.mmd: Mermaid.js DFD syntax (Milestone 3)
 - ASSUMPTIONS.md: Analysis assumptions and limitations
 
 ASVS V15.3.1: Output only the required subset of data.
+ASVS V5.3.3: Output encoding for Mermaid format.
 """
 
 from __future__ import annotations
@@ -320,7 +322,29 @@ class ArtifactGenerator:
         )
         written.append(json_path)
 
+        # Write Mermaid DFD (Milestone 3)
+        mermaid_path = self.output_dir / "DATAFLOW.mmd"
+        mermaid_path.write_text(self.generate_dataflow_mmd(artifacts), encoding="utf-8")
+        written.append(mermaid_path)
+
         return written
+
+    def generate_dataflow_mmd(self, artifacts: ThreatModelArtifacts) -> str:
+        """Generate Mermaid.js DFD syntax from artifacts.
+
+        Security: All labels are HTML-encoded and special characters sanitized
+        to prevent XSS when rendered in browsers.
+
+        Args:
+            artifacts: ThreatModelArtifacts containing DFD components
+
+        Returns:
+            Mermaid flowchart syntax string
+        """
+        from .mermaid import MermaidDFDGenerator
+
+        generator = MermaidDFDGenerator.from_artifacts(artifacts)
+        return generator.generate()
 
     def parse_llm_threats(self, llm_output: str) -> list[ThreatEntry]:
         """Parse LLM output into structured ThreatEntry objects.
