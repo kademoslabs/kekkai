@@ -108,3 +108,11 @@ For teams that need centralized management, **Kekkai Portal** offers:
 * **Cryptographically Signed Audit Logs**
 
 *Built by Kademos Labs.*
+
+---
+
+## 📚 Documentation
+
+- **[Automated Distribution Updates](docs/ci/automated-distributions.md)** - CI/CD distribution triggers
+- **[CI Architecture](/.docs/development/ci-architecture.md)** - Developer guide for distribution automation
+- **[Homebrew Maintenance](docs/ci/homebrew-maintenance.md)** - Homebrew tap management

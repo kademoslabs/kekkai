@@ -15,11 +15,14 @@ Run a local DefectDojo vulnerability management platform with one command.
 - **[Security Guide](dojo/dojo-security.md)** — Threat model and best practices
 - **[Troubleshooting](dojo/dojo-troubleshooting.md)** — Common issues and solutions
 
-### CI Mode (Policy Enforcement)
+### CI/CD
 
-Use Kekkai in CI/CD pipelines to fail builds on security findings.
+Use Kekkai in CI/CD pipelines to fail builds on security findings and automate distribution.
 
-- **[CI Mode Guide](ci-mode.md)** — Policy enforcement with exit codes
+- **[CI Mode Guide](ci/ci-mode.md)** — Policy enforcement with exit codes
+- **[Docker Usage](ci/docker-usage.md)** — Docker image and wrapper
+- **[Homebrew Maintenance](ci/homebrew-maintenance.md)** — Homebrew tap updates
+- **[Automated Distributions](ci/automated-distributions.md)** — Automated distribution trigger system
 
 ### Portal (Hosted Dashboard)
 
@@ -91,7 +94,10 @@ Kekkai supports multiple installation methods to fit your workflow:
 docs/
 ├── README.md                    # This file
 ├── ci/
-│   └── ci-mode.md               # CI policy enforcement guide
+│   ├── ci-mode.md               # CI policy enforcement guide
+│   ├── docker-usage.md          # Docker usage guide
+│   ├── homebrew-maintenance.md  # Homebrew tap maintenance
+│   └── automated-distributions.md # Distribution automation
 ├── dojo/                        # DefectDojo Docs
 │   ├── dojo-quickstart.md       # 5-minute quick start
 │   ├── dojo.md                  # Complete Dojo guide

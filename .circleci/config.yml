@@ -107,6 +107,9 @@ jobs:
               dist/*.whl \
               dist/*.tar.gz \
               dist/requirements-frozen.txt
+            # Note: GitHub Actions trigger-distributions workflow
+            # will automatically run after this release is published
+            # to update Homebrew, Docker Hub, Scoop, and Chocolatey
 
 workflows:
   develop:

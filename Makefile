@@ -32,9 +32,22 @@ collect:
 	pytest --collect-only -m "integration" -q
 	pytest --collect-only -m "regression" -q
 
+test-ci: ## Test CI/CD automation utilities
+	pytest tests/ci -v --cov=src/kekkai_core/ci --cov-report=term-missing
+
+validate-workflows: ## Validate GitHub Actions workflow syntax
+	@echo "Validating GitHub Actions workflows..."
+	@for file in .github/workflows/*.yml .github/workflows/*.yaml; do \
+		if [ -f "$$file" ]; then \
+			echo "Checking $$file..."; \
+			python3 -c "import yaml; yaml.safe_load(open('$$file'))" && echo "  ✅ Valid YAML" || exit 1; \
+		fi \
+	done
+	@echo "✅ All workflows valid"
+
 ci-quick: fmt lint unit sec
 
-ci: fmt lint collect unit integration regression sec
+ci: fmt lint collect test-ci unit integration regression sec
 
 build: ## Build Python wheel and sdist
 	$(PY) -m pip install -q build

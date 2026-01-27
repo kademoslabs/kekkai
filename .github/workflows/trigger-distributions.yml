@@ -1,0 +1,307 @@
+name: Trigger Distribution Updates
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g., 0.0.1 or 0.0.1-rc1)'
+        required: true
+        type: string
+      sha256:
+        description: 'SHA256 of release tarball (optional, will be calculated if not provided)'
+        required: false
+        type: string
+      dry_run:
+        description: 'Dry run mode (skip actual triggers)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  extract-metadata:
+    name: Extract Release Metadata
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      sha256: ${{ steps.meta.outputs.sha256 }}
+      tarball_url: ${{ steps.meta.outputs.tarball_url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Extract metadata
+        id: meta
+        run: |
+          set -e
+
+          # Determine version source
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            echo "Source: Release event"
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            echo "Source: Manual workflow_dispatch"
+            VERSION="${{ inputs.version }}"
+            # Remove 'v' prefix if present
+            VERSION="${VERSION#v}"
+          fi
+
+          echo "Version: $VERSION"
+
+          # Validate version format (basic semver check)
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\\.[a-zA-Z0-9]+)*)?$ ]]; then
+            echo "❌ Invalid version format: $VERSION"
+            echo "Expected: 0.0.1 or 0.0.1-rc1"
+            exit 1
+          fi
+
+          # Generate tarball URL
+          TARBALL_URL="https://github.com/kademoslabs/kekkai/archive/refs/tags/v${VERSION}.tar.gz"
+          echo "Tarball URL: $TARBALL_URL"
+
+          # Calculate or use provided SHA256
+          if [[ -n "${{ inputs.sha256 }}" ]]; then
+            echo "Using provided SHA256"
+            SHA256="${{ inputs.sha256 }}"
+          else
+            echo "Downloading tarball to calculate SHA256..."
+            wget -q "$TARBALL_URL" -O kekkai.tar.gz
+            SHA256=$(sha256sum kekkai.tar.gz | cut -d' ' -f1)
+            rm kekkai.tar.gz
+            echo "Calculated SHA256: $SHA256"
+          fi
+
+          # Output to GitHub Actions
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+          echo "tarball_url=$TARBALL_URL" >> $GITHUB_OUTPUT
+
+          echo "✅ Metadata extraction complete"
+
+  validate-metadata:
+    name: Validate Release Metadata
+    runs-on: ubuntu-latest
+    needs: extract-metadata
+
+    steps:
+      - name: Validate version format
+        run: |
+          VERSION="${{ needs.extract-metadata.outputs.version }}"
+
+          # Strict semver validation
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\\.[a-zA-Z0-9]+)*)?(\+[a-zA-Z0-9]+(\\.[a-zA-Z0-9]+)*)?$ ]]; then
+            echo "❌ Version validation failed: $VERSION"
+            exit 1
+          fi
+
+          echo "✅ Version format valid: $VERSION"
+
+      - name: Verify SHA256 format
+        run: |
+          SHA256="${{ needs.extract-metadata.outputs.sha256 }}"
+
+          # SHA256 should be 64 hex characters
+          if [[ ! "$SHA256" =~ ^[a-f0-9]{64}$ ]]; then
+            echo "❌ SHA256 validation failed: $SHA256"
+            exit 1
+          fi
+
+          echo "✅ SHA256 format valid"
+
+      - name: Verify tarball exists
+        run: |
+          TARBALL_URL="${{ needs.extract-metadata.outputs.tarball_url }}"
+
+          # Check if tarball is accessible (HTTP 200)
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$TARBALL_URL")
+
+          if [[ "$HTTP_CODE" != "200" ]]; then
+            echo "❌ Tarball not accessible: $TARBALL_URL (HTTP $HTTP_CODE)"
+            exit 1
+          fi
+
+          echo "✅ Tarball accessible: $TARBALL_URL"
+
+  trigger-homebrew:
+    name: Trigger Homebrew Tap Update
+    runs-on: ubuntu-latest
+    needs: [extract-metadata, validate-metadata]
+    if: ${{ !inputs.dry_run }}
+
+    steps:
+      - name: Send repository_dispatch to homebrew-tap
+        run: |
+          VERSION="${{ needs.extract-metadata.outputs.version }}"
+          SHA256="${{ needs.extract-metadata.outputs.sha256 }}"
+
+          echo "Triggering Homebrew tap update for version $VERSION"
+
+          curl -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.TAP_REPO_TOKEN }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/kademoslabs/homebrew-tap/dispatches \
+            -d "{
+              \"event_type\": \"kekkai-release\",
+              \"client_payload\": {
+                \"version\": \"$VERSION\",
+                \"sha256\": \"$SHA256\"
+              }
+            }"
+
+          echo "✅ Homebrew tap trigger sent"
+
+  trigger-docker:
+    name: Trigger Docker Hub Publish
+    runs-on: ubuntu-latest
+    needs: [extract-metadata, validate-metadata]
+    if: ${{ !inputs.dry_run }}
+
+    steps:
+      - name: Trigger docker-publish workflow
+        run: |
+          VERSION="${{ needs.extract-metadata.outputs.version }}"
+
+          echo "Triggering Docker Hub publish for version $VERSION"
+
+          curl -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/kademoslabs/kekkai/actions/workflows/docker-publish.yml/dispatches \
+            -d "{
+              \"ref\": \"main\",
+              \"inputs\": {
+                \"tag\": \"$VERSION\"
+              }
+            }"
+
+          echo "✅ Docker Hub trigger sent"
+
+  trigger-scoop:
+    name: Trigger Scoop Bucket Update
+    runs-on: ubuntu-latest
+    needs: [extract-metadata, validate-metadata]
+    if: ${{ !inputs.dry_run }}
+
+    steps:
+      - name: Send repository_dispatch to scoop-bucket
+        run: |
+          VERSION="${{ needs.extract-metadata.outputs.version }}"
+          SHA256="${{ needs.extract-metadata.outputs.sha256 }}"
+
+          echo "Triggering Scoop bucket update for version $VERSION"
+          echo "⚠️  Note: Scoop Excavator has known issues. Manual verification may be required."
+
+          # Trigger CI workflow in scoop-bucket to refresh manifest
+          curl -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.SCOOP_REPO_TOKEN }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/kademoslabs/scoop-bucket/dispatches \
+            -d "{
+              \"event_type\": \"kekkai-release\",
+              \"client_payload\": {
+                \"version\": \"$VERSION\",
+                \"sha256\": \"$SHA256\"
+              }
+            }"
+
+          echo "✅ Scoop bucket trigger sent"
+
+  trigger-chocolatey:
+    name: Trigger Chocolatey Package Update
+    runs-on: ubuntu-latest
+    needs: [extract-metadata, validate-metadata]
+    if: ${{ !inputs.dry_run }}
+
+    steps:
+      - name: Send repository_dispatch to chocolatey-packages
+        run: |
+          VERSION="${{ needs.extract-metadata.outputs.version }}"
+          SHA256="${{ needs.extract-metadata.outputs.sha256 }}"
+
+          echo "Triggering Chocolatey package update for version $VERSION"
+
+          curl -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.CHOCO_REPO_TOKEN }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/kademoslabs/chocolatey-packages/dispatches \
+            -d "{
+              \"event_type\": \"kekkai-release\",
+              \"client_payload\": {
+                \"version\": \"$VERSION\",
+                \"sha256\": \"$SHA256\"
+              }
+            }"
+
+          echo "✅ Chocolatey package trigger sent"
+
+  notify-success:
+    name: Notify Success
+    runs-on: ubuntu-latest
+    needs: [trigger-homebrew, trigger-docker, trigger-scoop, trigger-chocolatey]
+    if: ${{ success() && !inputs.dry_run }}
+
+    steps:
+      - name: Log success
+        run: |
+          echo "✅ All distribution triggers sent successfully"
+          echo "Version: ${{ needs.extract-metadata.outputs.version }}"
+          echo ""
+          echo "Distribution channels triggered:"
+          echo "  ✅ Homebrew tap"
+          echo "  ✅ Docker Hub"
+          echo "  ✅ Scoop bucket"
+          echo "  ✅ Chocolatey"
+
+  notify-failure:
+    name: Notify Failure
+    runs-on: ubuntu-latest
+    needs: [trigger-homebrew, trigger-docker, trigger-scoop, trigger-chocolatey]
+    if: ${{ failure() && !inputs.dry_run }}
+    permissions:
+      issues: write
+
+    steps:
+      - name: Create failure issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const version = '${{ needs.extract-metadata.outputs.version }}';
+            const runUrl = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}';
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Distribution update failed for v${version}`,
+              body: `## Distribution Update Failure\n\n` +
+                    `**Version:** ${version}\n` +
+                    `**Workflow Run:** ${runUrl}\n\n` +
+                    `### Action Required\n\n` +
+                    `One or more distribution triggers failed. Please review the workflow logs and:\n\n` +
+                    `1. Check if tokens are valid and have correct permissions\n` +
+                    `2. Verify target repositories are accessible\n` +
+                    `3. Review error messages in workflow logs\n` +
+                    `4. Trigger manual updates if necessary\n\n` +
+                    `### Manual Trigger Commands\n\n` +
+                    `\`\`\`bash\n` +
+                    `# Homebrew\n` +
+                    `# Update Formula/kekkai.rb manually in homebrew-tap\n\n` +
+                    `# Docker\n` +
+                    `# Re-run docker-publish workflow manually\n\n` +
+                    `# Scoop\n` +
+                    `# Update bucket/kekkai.json manually in scoop-bucket\n\n` +
+                    `# Chocolatey\n` +
+                    `# Update kekkai/kekkai.nuspec manually in chocolatey-packages\n` +
+                    `\`\`\`\n`,
+              labels: ['distribution', 'automation', 'ci-failure']
+            });
