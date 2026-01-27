@@ -20,7 +20,7 @@ line-length = 100
 extend-exclude = ["dist", "build", ".venv"]
 lint.select = ["E", "F", "I", "B", "UP", "S", "SIM"]
 lint.ignore = ["S101"]  # allow asserts in tests
-lint.per-file-ignores = { "tests/**" = ["S"], "src/kekkai_core/docker/**" = ["S603"] }
+lint.per-file-ignores = { "tests/**" = ["S"], "src/kekkai_core/docker/**" = ["S603"], "src/kekkai_core/slsa/**" = ["S603", "S607"] }
 
 [tool.mypy]
 python_version = "3.12"

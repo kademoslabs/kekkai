@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 PY := python3
 
-.PHONY: setup fmt lint test unit integration regression sec ci ci-quick build sbom release clean pipx-test docker-image docker-test brew-test native-test windows-unit windows-integration windows-test
+.PHONY: setup fmt lint test unit integration regression sec ci ci-quick build sbom release clean pipx-test docker-image docker-test brew-test native-test windows-unit windows-integration windows-test slsa-test slsa-verify
 
 setup:
 	python3 -m pip install -U pip wheel
@@ -190,6 +190,24 @@ installer-test: ## Test tool installer module
 	pytest tests/test_installer_*.py -v --cov=src/kekkai/installer --cov-report=term-missing
 	pytest -m "integration" tests/integration/test_installer_e2e.py -v
 	pytest -m "regression" tests/regression/test_installer_backends.py -v
+
+slsa-test: ## Test SLSA provenance verification module
+	pytest tests/test_slsa_provenance.py -v --cov=src/kekkai_core/slsa --cov-report=term-missing
+	pytest -m "integration" tests/integration/test_slsa_verification.py -v
+	pytest -m "regression" tests/regression/test_slsa_backwards_compat.py -v
+
+slsa-verify: ## Verify SLSA provenance for a release artifact (usage: make slsa-verify ARTIFACT=dist/kekkai-1.0.0.whl)
+	@if [ -z "$(ARTIFACT)" ]; then \
+		echo "Usage: make slsa-verify ARTIFACT=<path-to-artifact>"; \
+		exit 1; \
+	fi
+	@if ! command -v slsa-verifier >/dev/null 2>&1; then \
+		echo "slsa-verifier not installed. Install: https://github.com/slsa-framework/slsa-verifier"; \
+		exit 1; \
+	fi
+	slsa-verifier verify-artifact "$(ARTIFACT)" \
+		--provenance-path "$(ARTIFACT).intoto.jsonl" \
+		--source-uri github.com/kademoslabs/kekkai
 
 triage-test: ## Test triage TUI module
 	pytest tests/test_triage_*.py -v --cov=src/kekkai/triage --cov-report=term-missing --cov-fail-under=0
