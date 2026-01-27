@@ -35,7 +35,8 @@ testpaths = ["tests"]
 markers = [
   "integration: integration tests",
   "e2e: end-to-end tests",
-  "regression: regression/golden tests"
+  "regression: regression/golden tests",
+  "benchmark: performance benchmark tests"
 ]
 
 [tool.coverage.run]

@@ -143,6 +143,8 @@ jobs:
             # to update Homebrew, Docker Hub, Scoop, and Chocolatey
 
 workflows:
+  # Develop branch: Fast checks only (Linux)
+  # GitHub Actions runs cross-platform tests on PRs
   develop:
     jobs:
       - test_quick:
@@ -150,6 +152,8 @@ workflows:
             branches:
               only: develop
 
+  # Main branch: Full Linux testing + build validation
+  # GitHub Actions runs cross-platform validation in parallel
   main:
     jobs:
       - test_full:
@@ -163,6 +167,9 @@ workflows:
             branches:
               only: main
 
+  # Release workflow: Full testing + deployment
+  # Triggered by version tags (v*.*.*)
+  # After publish, GitHub Actions trigger-distributions workflow runs automatically
   release:
     jobs:
       - test_full:

@@ -204,5 +204,28 @@ chocolatey-integration: ## Chocolatey integration tests
 chocolatey-test: chocolatey-unit chocolatey-integration ## All Chocolatey tests
 	@echo "✅ All Chocolatey tests passed"
 
+test-matrix: ## Run full cross-platform test suite
+	@echo "Running cross-platform test matrix..."
+	pytest tests/ci/test_cross_platform.py -v
+	pytest tests/integration/test_platform_parity.py -v
+	pytest tests/regression/test_platform_regressions.py -v
+	@echo "✅ Cross-platform tests completed"
+
+benchmark: ## Run performance benchmarks
+	@echo "Running performance benchmarks..."
+	pytest tests/ci/test_benchmarks.py -v -m "not integration"
+	@echo "✅ Benchmarks completed"
+	@echo "Results stored in .benchmarks/"
+
+benchmark-full: ## Run all benchmarks including integration
+	@echo "Running all performance benchmarks..."
+	pytest tests/ci/test_benchmarks.py -v
+	@echo "✅ All benchmarks completed"
+
+coverage-report: ## Generate comprehensive coverage report
+	@echo "Generating coverage report..."
+	pytest --cov=src --cov-report=html --cov-report=term-missing
+	@echo "✅ Coverage report generated in htmlcov/"
+
 clean:
-	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage coverage.xml dist build *.egg-info src/*.egg-info
+	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage coverage.xml dist build *.egg-info src/*.egg-info .benchmarks htmlcov

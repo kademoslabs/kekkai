@@ -69,6 +69,7 @@ reports/
 artifacts/
 tmp/
 .cache/
+.benchmarks/
 
 .github/instructions/snyk_rules.instructions.md
 .docs/
