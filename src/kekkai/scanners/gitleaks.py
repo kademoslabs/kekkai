@@ -16,7 +16,7 @@ from .base import Finding, ScanContext, ScanResult, Severity
 from .container import ContainerConfig, run_container
 
 GITLEAKS_IMAGE = "zricethezav/gitleaks"
-GITLEAKS_DIGEST = "sha256:b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2"
+GITLEAKS_DIGEST = "sha256:691af3c7c5a48b16f187ce3446d5f194838f91238f27270ed36eef6359a574d9"
 SCAN_TYPE = "Gitleaks Scan"
 
 
