@@ -8,6 +8,7 @@ dependencies = [
     "rich>=13.0.0",
     "jsonschema>=4.20.0",
     "textual>=0.50.0",
+    "httpx>=0.24.0",
 ]
 
 [project.scripts]
@@ -20,7 +21,7 @@ line-length = 100
 extend-exclude = ["dist", "build", ".venv"]
 lint.select = ["E", "F", "I", "B", "UP", "S", "SIM"]
 lint.ignore = ["S101"]  # allow asserts in tests
-lint.per-file-ignores = { "tests/**" = ["S"], "src/kekkai_core/docker/**" = ["S603"], "src/kekkai_core/slsa/**" = ["S603", "S607"] }
+lint.per-file-ignores = { "tests/**" = ["S"], "src/kekkai_core/docker/**" = ["S603"], "src/kekkai_core/slsa/**" = ["S603", "S607"], "src/kekkai/github/**" = ["S105"] }
 
 [tool.mypy]
 python_version = "3.12"

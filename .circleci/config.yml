@@ -28,6 +28,11 @@ jobs:
             . .venv/bin/activate
             make slsa-test
       - run:
+          name: GitHub PR commenter tests
+          command: |
+            . .venv/bin/activate
+            make github-test
+      - run:
           name: Windows unit tests
           command: |
             . .venv/bin/activate

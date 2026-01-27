@@ -1,0 +1,59 @@
+name: Kekkai Security Scan
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Kekkai
+        run: |
+          python -m pip install --upgrade pip
+          pip install kekkai-cli
+
+      - name: Initialize Kekkai
+        run: kekkai init
+
+      - name: Run Security Scan
+        id: scan
+        run: |
+          kekkai scan \
+            --repo . \
+            --ci \
+            --output results.json \
+            --pr-comment \
+            --max-comments 50 \
+            --comment-severity medium
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Upload Scan Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kekkai-scan-results
+          path: |
+            results.json
+            ~/.kekkai/runs/*/
+          retention-days: 30
+
+      - name: Check Scan Status
+        if: steps.scan.outcome == 'failure'
+        run: |
+          echo "Security scan found policy violations"
+          exit 1

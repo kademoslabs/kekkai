@@ -112,6 +112,40 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Path for policy result JSON output",
     )
 
+    # GitHub PR comment options
+    scan_parser.add_argument(
+        "--pr-comment",
+        action="store_true",
+        help="Post findings as GitHub PR review comments",
+    )
+    scan_parser.add_argument(
+        "--github-token",
+        type=str,
+        help="GitHub token (or set GITHUB_TOKEN env var)",
+    )
+    scan_parser.add_argument(
+        "--pr-number",
+        type=int,
+        help="PR number to comment on (auto-detected in GitHub Actions)",
+    )
+    scan_parser.add_argument(
+        "--github-repo",
+        type=str,
+        help="GitHub repository (owner/repo, auto-detected in GitHub Actions)",
+    )
+    scan_parser.add_argument(
+        "--max-comments",
+        type=int,
+        default=50,
+        help="Maximum PR comments to post (default: 50)",
+    )
+    scan_parser.add_argument(
+        "--comment-severity",
+        type=str,
+        default="medium",
+        help="Minimum severity for PR comments (default: medium)",
+    )
+
     dojo_parser = subparsers.add_parser("dojo", help="manage local DefectDojo stack")
     dojo_subparsers = dojo_parser.add_subparsers(dest="dojo_command")
 
@@ -201,6 +235,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             parsed.ci,
             parsed.fail_on,
             parsed.output,
+            pr_comment=parsed.pr_comment,
+            github_token=parsed.github_token,
+            pr_number=parsed.pr_number,
+            github_repo=parsed.github_repo,
+            max_comments=parsed.max_comments,
+            comment_severity=parsed.comment_severity,
         )
     if parsed.command == "dojo":
         return _command_dojo(parsed)
@@ -257,6 +297,13 @@ def _command_scan(
     ci_mode: bool = False,
     fail_on_override: str | None = None,
     output_path: str | None = None,
+    *,
+    pr_comment: bool = False,
+    github_token: str | None = None,
+    pr_number: int | None = None,
+    github_repo: str | None = None,
+    max_comments: int = 50,
+    comment_severity: str = "medium",
 ) -> int:
     cfg_path = _resolve_config_path(config_override)
     if not cfg_path.exists():
@@ -404,6 +451,17 @@ def _command_scan(
         elif scan_res.error:
             scan_errors.append(f"{scan_res.scanner}: {scan_res.error}")
 
+    # Post PR comments if requested
+    if pr_comment and all_findings:
+        _post_pr_comments(
+            all_findings,
+            github_token=github_token,
+            pr_number=pr_number,
+            github_repo=github_repo,
+            max_comments=max_comments,
+            min_severity=comment_severity,
+        )
+
     # Apply policy in CI mode
     if ci_mode or fail_on_override:
         policy_config = _resolve_policy_config(cfg.policy, fail_on_override, ci_mode)
@@ -512,6 +570,94 @@ def _print_policy_summary(result: PolicyResult) -> None:
         console.print("  [warning]Scan Errors:[/warning]")
         for e in result.scan_errors:
             console.print(f"    - {sanitize_error(e)}")
+
+
+def _post_pr_comments(
+    findings: list[Finding],
+    *,
+    github_token: str | None,
+    pr_number: int | None,
+    github_repo: str | None,
+    max_comments: int,
+    min_severity: str,
+) -> None:
+    """Post findings as GitHub PR review comments."""
+    # Resolve token from env if not provided
+    token = github_token or os.environ.get("GITHUB_TOKEN")
+    if not token:
+        console.print("[warning]PR comment requested but no GitHub token provided[/warning]")
+        return
+
+    # Auto-detect PR number from GitHub Actions event
+    if pr_number is None:
+        pr_number = _detect_pr_number()
+    if pr_number is None:
+        console.print("[warning]PR comment requested but no PR number detected[/warning]")
+        return
+
+    # Resolve owner/repo
+    owner, repo = _resolve_github_repo(github_repo)
+    if not owner or not repo:
+        console.print("[warning]PR comment requested but repository not detected[/warning]")
+        return
+
+    try:
+        from .github import GitHubConfig
+        from .github import post_pr_comments as _post_comments
+
+        config = GitHubConfig(
+            token=token,
+            owner=owner,
+            repo=repo,
+            pr_number=pr_number,
+        )
+        result = _post_comments(
+            findings,
+            config,
+            max_comments=max_comments,
+            min_severity=min_severity,
+        )
+        if result.success:
+            console.print(f"[success]Posted {result.comments_posted} PR comment(s)[/success]")
+            if result.review_url:
+                console.print(f"  Review: [link]{result.review_url}[/link]")
+        else:
+            for err in result.errors:
+                console.print(f"[warning]PR comment error: {sanitize_error(err)}[/warning]")
+    except Exception as e:
+        console.print(f"[warning]Failed to post PR comments: {sanitize_error(str(e))}[/warning]")
+
+
+def _detect_pr_number() -> int | None:
+    """Auto-detect PR number from GitHub Actions environment."""
+    import json as _json
+
+    event_path = os.environ.get("GITHUB_EVENT_PATH")
+    if not event_path:
+        return None
+
+    try:
+        with open(event_path) as f:
+            event: dict[str, dict[str, int]] = _json.load(f)
+        pr = event.get("pull_request", {})
+        return pr.get("number")
+    except (OSError, ValueError, KeyError):
+        return None
+
+
+def _resolve_github_repo(override: str | None) -> tuple[str | None, str | None]:
+    """Resolve GitHub owner/repo from override or environment."""
+    if override and "/" in override:
+        parts = override.split("/", 1)
+        return parts[0], parts[1]
+
+    # Try GITHUB_REPOSITORY env var (set in GitHub Actions)
+    repo_env = os.environ.get("GITHUB_REPOSITORY")
+    if repo_env and "/" in repo_env:
+        parts = repo_env.split("/", 1)
+        return parts[0], parts[1]
+
+    return None, None
 
 
 def _create_scanner(

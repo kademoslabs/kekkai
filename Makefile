@@ -196,6 +196,11 @@ slsa-test: ## Test SLSA provenance verification module
 	pytest -m "integration" tests/integration/test_slsa_verification.py -v
 	pytest -m "regression" tests/regression/test_slsa_backwards_compat.py -v
 
+github-test: ## Test GitHub PR commenter module
+	pytest tests/test_github_commenter_*.py -v --cov=src/kekkai/github --cov-report=term-missing
+	pytest -m "integration" tests/integration/test_github_pr_api.py -v
+	pytest -m "regression" tests/regression/test_github_commenter_json_compat.py -v
+
 slsa-verify: ## Verify SLSA provenance for a release artifact (usage: make slsa-verify ARTIFACT=dist/kekkai-1.0.0.whl)
 	@if [ -z "$(ARTIFACT)" ]; then \
 		echo "Usage: make slsa-verify ARTIFACT=<path-to-artifact>"; \
