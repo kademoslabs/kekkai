@@ -1,0 +1,200 @@
+name: Publish Docker Image
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Docker image tag (e.g., v0.0.1)'
+        required: true
+        default: 'latest'
+
+jobs:
+  publish-docker:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract metadata
+        id: meta
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+            TAGS="kademoslabs/kekkai:${VERSION},kademoslabs/kekkai:latest"
+          else
+            VERSION="${{ github.event.inputs.tag }}"
+            TAGS="kademoslabs/kekkai:${VERSION}"
+          fi
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tags=$TAGS" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+          echo "Tags: $TAGS"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image for scanning
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/kekkai/Dockerfile
+          push: false
+          load: true
+          tags: kademoslabs/kekkai:scan
+          platforms: linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run Trivy security scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: kademoslabs/kekkai:scan
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH,MEDIUM,LOW
+          timeout: 10m
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-container-scan
+
+      - name: Run Trivy scan (JSON format)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: kademoslabs/kekkai:scan
+          format: json
+          output: trivy-results.json
+          severity: CRITICAL,HIGH,MEDIUM,LOW
+
+      - name: Check for HIGH/CRITICAL vulnerabilities
+        run: |
+          CRITICAL=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' trivy-results.json)
+          HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="HIGH")] | length' trivy-results.json)
+
+          echo "Critical vulnerabilities: $CRITICAL"
+          echo "High vulnerabilities: $HIGH"
+
+          if [[ "$CRITICAL" -gt 0 ]] || [[ "$HIGH" -gt 0 ]]; then
+            echo "❌ Found $CRITICAL CRITICAL and $HIGH HIGH vulnerabilities"
+            echo "Failing build due to security vulnerabilities"
+            exit 1
+          fi
+
+          echo "✅ No HIGH or CRITICAL vulnerabilities detected"
+
+      - name: Generate SBOM
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: kademoslabs/kekkai:scan
+          format: spdx-json
+          output: sbom.spdx.json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.spdx.json
+          retention-days: 90
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        id: build-push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/kekkai/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: |
+            org.opencontainers.image.title=Kekkai CLI
+            org.opencontainers.image.description=Local-first AppSec orchestration
+            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
+            org.opencontainers.image.source=https://github.com/kademoslabs/kekkai
+            org.opencontainers.image.licenses=Apache-2.0
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=${{ github.event.repository.updated_at }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: v2.2.3
+
+      - name: Sign Docker image with Cosign
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+        run: |
+          # Sign each tag
+          for tag in $(echo "${{ steps.meta.outputs.tags }}" | tr ',' ' '); do
+            echo "Signing image: $tag"
+            echo "$COSIGN_PRIVATE_KEY" > cosign.key
+            cosign sign --yes --key cosign.key "$tag"
+            rm -f cosign.key
+          done
+
+      - name: Attach SBOM to image
+        run: |
+          # Attach SBOM to first tag only
+          FIRST_TAG=$(echo "${{ steps.meta.outputs.tags }}" | cut -d',' -f1)
+          echo "Attaching SBOM to: $FIRST_TAG"
+          cosign attach sbom --sbom sbom.spdx.json "$FIRST_TAG" || echo "SBOM attachment skipped (may require additional permissions)"
+
+      - name: Update Docker Hub description
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: kademoslabs/kekkai
+          readme-filepath: ./README.md
+          short-description: "Local-first AppSec orchestration for Trivy, Semgrep, and DefectDojo"
+
+      - name: Generate security summary
+        if: always()
+        run: |
+          echo "## Docker Security Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Image**: kademoslabs/kekkai:${{ steps.meta.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [[ -f trivy-results.json ]]; then
+            CRITICAL=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' trivy-results.json)
+            HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="HIGH")] | length' trivy-results.json)
+            MEDIUM=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="MEDIUM")] | length' trivy-results.json)
+            LOW=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="LOW")] | length' trivy-results.json)
+
+            echo "### Vulnerability Scan Results" >> $GITHUB_STEP_SUMMARY
+            echo "| Severity | Count |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| CRITICAL | $CRITICAL |" >> $GITHUB_STEP_SUMMARY
+            echo "| HIGH | $HIGH |" >> $GITHUB_STEP_SUMMARY
+            echo "| MEDIUM | $MEDIUM |" >> $GITHUB_STEP_SUMMARY
+            echo "| LOW | $LOW |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Image Signing" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Image signed with Cosign" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### SBOM" >> $GITHUB_STEP_SUMMARY
+          echo "✅ SBOM generated in SPDX format" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,18 @@
+# Sample configuration for threat model testing
+# Contains intentional patterns for testing
+
+database:
+  host: localhost
+  port: 5432
+  # Fake credentials for testing only
+  username: testuser
+  password: test_password_not_real
+
+api:
+  base_url: https://api.example.com
+  timeout: 30
+
+logging:
+  level: DEBUG
+  # Log sensitive data - bad practice for testing
+  include_headers: true

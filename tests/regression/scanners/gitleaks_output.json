@@ -1,0 +1,11 @@
+[
+  {
+    "RuleID": "aws-access-key-id",
+    "Match": "AKIAIOSFODNN7EXAMPLE",
+    "File": "config.py",
+    "StartLine": 15,
+    "Commit": "abc123def456789",
+    "Author": "dev@example.com",
+    "Entropy": 3.5
+  }
+]

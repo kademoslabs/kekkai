@@ -1,0 +1,23 @@
+{
+  "finished_at": "2026-01-01T00:01:00+00:00",
+  "repo_path": "/tmp/repo",
+  "run_dir": "/tmp/kekkai/runs/fixed-run",
+  "run_id": "fixed-run",
+  "schema_version": 1,
+  "started_at": "2026-01-01T00:00:00+00:00",
+  "status": "success",
+  "steps": [
+    {
+      "args": [
+        "echo",
+        "hello"
+      ],
+      "duration_ms": 120,
+      "exit_code": 0,
+      "name": "echo",
+      "stderr": "",
+      "stdout": "hello",
+      "timed_out": false
+    }
+  ]
+}

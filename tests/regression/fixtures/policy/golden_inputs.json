@@ -1,0 +1,142 @@
+{
+  "test_cases": [
+    {
+      "name": "no_findings_passes",
+      "findings": [],
+      "policy": {
+        "fail_on_critical": true,
+        "fail_on_high": true,
+        "max_critical": 0,
+        "max_high": 0
+      },
+      "expected": {
+        "passed": true,
+        "exit_code": 0,
+        "violation_count": 0
+      }
+    },
+    {
+      "name": "critical_finding_fails",
+      "findings": [
+        {"severity": "critical", "title": "Critical vuln"}
+      ],
+      "policy": {
+        "fail_on_critical": true,
+        "max_critical": 0
+      },
+      "expected": {
+        "passed": false,
+        "exit_code": 1,
+        "violation_count": 1
+      }
+    },
+    {
+      "name": "high_finding_below_threshold",
+      "findings": [
+        {"severity": "high", "title": "High vuln 1"},
+        {"severity": "high", "title": "High vuln 2"}
+      ],
+      "policy": {
+        "fail_on_high": true,
+        "max_high": 5
+      },
+      "expected": {
+        "passed": true,
+        "exit_code": 0,
+        "violation_count": 0
+      }
+    },
+    {
+      "name": "high_finding_exceeds_threshold",
+      "findings": [
+        {"severity": "high", "title": "High vuln 1"},
+        {"severity": "high", "title": "High vuln 2"},
+        {"severity": "high", "title": "High vuln 3"}
+      ],
+      "policy": {
+        "fail_on_high": true,
+        "max_high": 2
+      },
+      "expected": {
+        "passed": false,
+        "exit_code": 1,
+        "violation_count": 1
+      }
+    },
+    {
+      "name": "medium_ignored_by_default",
+      "findings": [
+        {"severity": "medium", "title": "Medium vuln"}
+      ],
+      "policy": {
+        "fail_on_critical": true,
+        "fail_on_high": true,
+        "fail_on_medium": false,
+        "max_critical": 0,
+        "max_high": 0
+      },
+      "expected": {
+        "passed": true,
+        "exit_code": 0,
+        "violation_count": 0
+      }
+    },
+    {
+      "name": "total_threshold_enforced",
+      "findings": [
+        {"severity": "low", "title": "Low 1"},
+        {"severity": "low", "title": "Low 2"},
+        {"severity": "low", "title": "Low 3"},
+        {"severity": "info", "title": "Info 1"},
+        {"severity": "info", "title": "Info 2"},
+        {"severity": "info", "title": "Info 3"}
+      ],
+      "policy": {
+        "fail_on_critical": false,
+        "fail_on_high": false,
+        "fail_on_medium": false,
+        "fail_on_low": false,
+        "fail_on_info": false,
+        "max_total": 5
+      },
+      "expected": {
+        "passed": false,
+        "exit_code": 1,
+        "violation_count": 1
+      }
+    },
+    {
+      "name": "multiple_violations",
+      "findings": [
+        {"severity": "critical", "title": "Critical"},
+        {"severity": "high", "title": "High 1"},
+        {"severity": "high", "title": "High 2"}
+      ],
+      "policy": {
+        "fail_on_critical": true,
+        "fail_on_high": true,
+        "max_critical": 0,
+        "max_high": 1
+      },
+      "expected": {
+        "passed": false,
+        "exit_code": 1,
+        "violation_count": 2
+      }
+    },
+    {
+      "name": "scan_error_fails",
+      "findings": [],
+      "scan_errors": ["Scanner crashed"],
+      "policy": {
+        "fail_on_critical": true,
+        "max_critical": 0
+      },
+      "expected": {
+        "passed": false,
+        "exit_code": 2,
+        "violation_count": 0
+      }
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>kekkai</id>
+    <version>0.0.1</version>
+    <title>Kekkai</title>
+    <authors>Kademos Labs</authors>
+    <owners>Kademos Labs</owners>
+    <licenseUrl>https://github.com/kademoslabs/kekkai/blob/main/LICENSE</licenseUrl>
+    <projectUrl>https://github.com/kademoslabs/kekkai</projectUrl>
+    <iconUrl>https://raw.githubusercontent.com/kademoslabs/kekkai/main/docs/assets/icon.png</iconUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Kekkai - Local-first AppSec orchestration and compliance checker. Integrates security scanning tools (Semgrep, Trivy, Gitleaks, OWASP ZAP) with DefectDojo for centralized vulnerability management.</description>
+    <summary>Local-first AppSec orchestration and compliance checker</summary>
+    <tags>security appsec cli devsecops vulnerability-scanner compliance</tags>
+    <copyright>2024-2026 Kademos Labs</copyright>
+    <dependencies>
+      <dependency id="python" version="[3.12,)" />
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

@@ -1,0 +1,31 @@
+{
+  "Results": [
+    {
+      "Target": "package-lock.json",
+      "Type": "npm",
+      "Vulnerabilities": [
+        {
+          "VulnerabilityID": "CVE-2023-1234",
+          "PkgName": "lodash",
+          "InstalledVersion": "4.17.19",
+          "FixedVersion": "4.17.21",
+          "Severity": "HIGH",
+          "Title": "Prototype Pollution in lodash",
+          "Description": "Lodash versions prior to 4.17.21 are vulnerable to prototype pollution."
+        }
+      ]
+    },
+    {
+      "Target": "Dockerfile",
+      "Misconfigurations": [
+        {
+          "ID": "DS002",
+          "Title": "Running as root",
+          "Severity": "HIGH",
+          "Description": "Container runs as root user",
+          "Resolution": "Add USER instruction to Dockerfile"
+        }
+      ]
+    }
+  ]
+}

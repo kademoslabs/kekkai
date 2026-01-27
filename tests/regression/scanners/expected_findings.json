@@ -1,0 +1,18 @@
+{
+  "trivy": {
+    "count": 2,
+    "severities": ["high", "high"],
+    "has_cve": true,
+    "has_misconfig": true
+  },
+  "semgrep": {
+    "count": 1,
+    "severities": ["high"],
+    "has_cwe": true
+  },
+  "gitleaks": {
+    "count": 1,
+    "severities": ["high"],
+    "secrets_redacted": true
+  }
+}

@@ -1,0 +1,198 @@
+version: 2.1
+
+jobs:
+  test_quick:
+    docker:
+      - image: cimg/python:3.12
+    steps:
+      - checkout
+      - run:
+          name: Install tooling
+          command: |
+            python -m venv .venv
+            . .venv/bin/activate
+            make setup
+      - run:
+          name: CI gate (quick)
+          command: |
+            . .venv/bin/activate
+            make ci-quick
+      - run:
+          name: Native mode tests
+          command: |
+            . .venv/bin/activate
+            make native-test
+      - run:
+          name: Windows unit tests
+          command: |
+            . .venv/bin/activate
+            make windows-unit
+      - run:
+          name: Chocolatey unit tests
+          command: |
+            . .venv/bin/activate
+            make chocolatey-unit
+      - run:
+          name: pipx install test
+          command: |
+            . .venv/bin/activate
+            make pipx-test
+
+  test_full:
+    docker:
+      - image: cimg/python:3.12
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: Install tooling
+          command: |
+            python -m venv .venv
+            . .venv/bin/activate
+            make setup
+            if ! command -v docker-compose >/dev/null 2>&1; then
+              sudo apt-get update
+              sudo apt-get install -y docker-compose
+            fi
+      - run:
+          name: CI gate
+          command: |
+            . .venv/bin/activate
+            make ci
+      - run:
+          name: Windows tests
+          command: |
+            . .venv/bin/activate
+            make windows-test
+      - run:
+          name: Chocolatey tests
+          command: |
+            . .venv/bin/activate
+            make chocolatey-test
+      - run:
+          name: Docker security tests
+          command: |
+            . .venv/bin/activate
+            make docker-security-test
+
+  build_release:
+    docker:
+      - image: cimg/python:3.12
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: Install tooling
+          command: |
+            python -m venv .venv
+            . .venv/bin/activate
+            make setup
+      - run:
+          name: Build release artifacts with checksums
+          command: |
+            . .venv/bin/activate
+            make release
+      - run:
+          name: Validate wheel artifacts
+          command: |
+            . .venv/bin/activate
+            ls -la dist/*.whl
+            test -f dist/*.whl || (echo "ERROR: No wheel file found" && exit 1)
+      - run:
+          name: Build Docker image
+          command: |
+            make docker-image
+      - run:
+          name: Test Docker wrapper
+          command: |
+            make docker-test
+      - store_artifacts:
+          path: dist
+          destination: release-artifacts
+      - persist_to_workspace:
+          root: .
+          paths:
+            - dist
+
+  publish_release:
+    docker:
+      - image: cimg/python:3.12
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: Install GitHub CLI
+          command: |
+            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+            sudo apt-get update
+            sudo apt-get install -y gh
+      - run:
+          name: Create GitHub Release
+          command: |
+            VERSION=$(echo $CIRCLE_TAG | sed 's/^v//')
+            gh release create "$CIRCLE_TAG" \
+              --title "Kekkai $CIRCLE_TAG" \
+              --notes "Release $CIRCLE_TAG" \
+              dist/*.whl \
+              dist/*.tar.gz \
+              dist/requirements-frozen.txt
+            # Note: GitHub Actions trigger-distributions workflow
+            # will automatically run after this release is published
+            # to update Homebrew, Docker Hub, Scoop, and Chocolatey
+
+workflows:
+  # Develop branch: Fast checks only (Linux)
+  # GitHub Actions runs cross-platform tests on PRs
+  develop:
+    jobs:
+      - test_quick:
+          filters:
+            branches:
+              only: develop
+
+  # Main branch: Full Linux testing + build validation
+  # GitHub Actions runs cross-platform validation in parallel
+  main:
+    jobs:
+      - test_full:
+          filters:
+            branches:
+              only: main
+      - build_release:
+          requires:
+            - test_full
+          filters:
+            branches:
+              only: main
+
+  # Release workflow: Full testing + deployment
+  # Triggered by version tags (v*.*.*)
+  # After publish, GitHub Actions trigger-distributions workflow runs automatically
+  release:
+    jobs:
+      - test_full:
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
+      - build_release:
+          requires:
+            - test_full
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
+      - publish_release:
+          requires:
+            - build_release
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
+          context:
+            - github-release

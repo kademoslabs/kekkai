@@ -1,0 +1,85 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtualenvs
+.venv/
+venv/
+ENV/
+env/
+
+# Packaging / build
+build/
+dist/
+*.egg-info/
+.eggs/
+src/kekkai.egg-info/
+.eggs/
+
+# Test / coverage / tooling caches
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+.pytype/
+.tox/
+.nox/
+
+# Jupyter / notebooks
+.ipynb_checkpoints/
+
+# IDEs / editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# ---- Secrets / local config (never commit) ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Cosign signing keys (NEVER commit!)
+.cosign-keys/
+cosign.pub
+
+# ---- Docker / compose local artifacts ----
+docker-compose.override.yml
+**/.docker/
+**/data/
+**/volumes/
+
+# ---- Runtime artifacts / reports ----
+reports/
+artifacts/
+tmp/
+.cache/
+.benchmarks/
+
+.github/instructions/snyk_rules.instructions.md
+.docs/
+
+# ---- SEPARATE folder (for distribution repo staging) ----
+# This folder contains distribution repositories (homebrew-tap, scoop-bucket, etc.)
+# that will be moved to separate GitHub repositories
+SEPARATE/
+
+# ---- SEP-REGULON folder (extracted Regulon project) ----
+# Regulon has been extracted to its own repository
+# This folder contains the extracted code (untracked)
+SEP-REGULON/

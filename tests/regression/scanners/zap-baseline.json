@@ -1,0 +1,87 @@
+{
+  "@version": "2.14.0",
+  "@generated": "Thu, 15 Jan 2024 10:30:00",
+  "site": [
+    {
+      "@name": "https://testapp.example.com",
+      "@host": "testapp.example.com",
+      "@port": "443",
+      "@ssl": "true",
+      "alerts": [
+        {
+          "pluginid": "10038",
+          "alertRef": "10038",
+          "name": "Content Security Policy (CSP) Header Not Set",
+          "riskcode": "2",
+          "confidence": "3",
+          "riskdesc": "Medium (High)",
+          "desc": "<p>Content Security Policy (CSP) is an added layer of security that helps to detect and mitigate certain types of attacks.</p>",
+          "instances": [
+            {
+              "uri": "https://testapp.example.com/",
+              "method": "GET",
+              "param": "",
+              "attack": "",
+              "evidence": ""
+            }
+          ],
+          "count": "1",
+          "solution": "<p>Ensure that your web server, application server, load balancer, etc. is configured to set the Content-Security-Policy header.</p>",
+          "otherinfo": "",
+          "reference": "<p>https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP</p>",
+          "cweid": "693",
+          "wascid": "15",
+          "sourceid": "1"
+        },
+        {
+          "pluginid": "10020",
+          "alertRef": "10020",
+          "name": "X-Frame-Options Header Not Set",
+          "riskcode": "1",
+          "confidence": "2",
+          "riskdesc": "Low (Medium)",
+          "desc": "<p>X-Frame-Options header is not included in the HTTP response to protect against 'ClickJacking' attacks.</p>",
+          "instances": [
+            {
+              "uri": "https://testapp.example.com/login",
+              "method": "GET",
+              "param": "",
+              "attack": "",
+              "evidence": ""
+            }
+          ],
+          "count": "1",
+          "solution": "<p>Include X-Frame-Options header.</p>",
+          "reference": "<p>https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options</p>",
+          "cweid": "1021",
+          "wascid": "15",
+          "sourceid": "1"
+        },
+        {
+          "pluginid": "10021",
+          "alertRef": "10021",
+          "name": "X-Content-Type-Options Header Missing",
+          "riskcode": "0",
+          "confidence": "2",
+          "riskdesc": "Informational (Medium)",
+          "desc": "<p>The Anti-MIME-Sniffing header X-Content-Type-Options was not set to 'nosniff'.</p>",
+          "instances": [
+            {
+              "uri": "https://testapp.example.com/api/data",
+              "method": "GET",
+              "param": "",
+              "attack": "",
+              "evidence": ""
+            }
+          ],
+          "count": "1",
+          "solution": "<p>Set X-Content-Type-Options header to 'nosniff'.</p>",
+          "reference": "<p>https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Content-Type-Options</p>",
+          "cweid": "693",
+          "wascid": "15",
+          "sourceid": "1"
+        }
+      ]
+    }
+  ]
+}
