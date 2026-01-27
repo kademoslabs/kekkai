@@ -2,7 +2,7 @@
 # Hardened container image for running kekkai without local Python installation
 # Usage: docker build -t kademoslabs/kekkai:latest -f apps/kekkai/Dockerfile .
 
-FROM python:3.12-slim
+FROM python:3.12-slim-bookworm
 
 # Create non-root user for security
 RUN useradd -m -u 1000 -s /bin/bash kekkai

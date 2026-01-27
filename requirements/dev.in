@@ -3,6 +3,7 @@ ruff
 mypy
 pytest
 pytest-cov
+pytest-benchmark
 bandit
 pip-audit
 Jinja2

@@ -36,12 +36,16 @@ idna==3.11
     # via requests
 iniconfig==2.3.0
     # via pytest
+jinja2==3.1.6
+    # via -r requirements/dev.in
 librt==0.7.8
     # via mypy
 license-expression==30.4.4
     # via cyclonedx-python-lib
 markdown-it-py==4.0.0
     # via rich
+markupsafe==3.0.3
+    # via jinja2
 mdurl==0.1.2
     # via markdown-it-py
 msgpack==1.1.2
@@ -77,6 +81,8 @@ pluggy==1.6.0
     #   pytest-cov
 pre-commit==4.5.1
     # via -r requirements/dev.in
+py-cpuinfo==9.0.0
+    # via pytest-benchmark
 py-serializable==2.1.0
     # via cyclonedx-python-lib
 pygments==2.19.2
@@ -88,7 +94,10 @@ pyparsing==3.3.1
 pytest==9.0.2
     # via
     #   -r requirements/dev.in
+    #   pytest-benchmark
     #   pytest-cov
+pytest-benchmark==5.2.3
+    # via -r requirements/dev.in
 pytest-cov==7.0.0
     # via -r requirements/dev.in
 pyyaml==6.0.3
@@ -113,6 +122,10 @@ tomli==2.4.0
     # via pip-audit
 tomli-w==1.2.0
     # via pip-audit
+types-jinja2==2.11.9
+    # via -r requirements/dev.in
+types-markupsafe==1.1.10
+    # via types-jinja2
 typing-extensions==4.15.0
     # via
     #   cyclonedx-python-lib
