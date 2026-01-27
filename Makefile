@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 PY := python3
 
-.PHONY: setup fmt lint test unit integration regression sec ci ci-quick build sbom release clean pipx-test docker-image docker-test brew-test native-test windows-unit windows-integration windows-test slsa-test slsa-verify
+.PHONY: setup fmt lint test unit integration regression sec ci ci-quick build sbom release clean pipx-test docker-image docker-test brew-test native-test windows-unit windows-integration windows-test slsa-test slsa-verify vscode-setup vscode-build vscode-test vscode-lint vscode-package
 
 setup:
 	python3 -m pip install -U pip wheel
@@ -260,5 +260,30 @@ coverage-report: ## Generate comprehensive coverage report
 	pytest --cov=src --cov-report=html --cov-report=term-missing
 	@echo "✅ Coverage report generated in htmlcov/"
 
+vscode-setup: ## Install VS Code extension dependencies
+	@echo "Installing VS Code extension dependencies..."
+	cd apps/vscode-kekkai && npm install
+
+vscode-build: vscode-setup ## Build VS Code extension
+	@echo "Building VS Code extension..."
+	cd apps/vscode-kekkai && npm run compile
+
+vscode-test: vscode-build ## Run VS Code extension tests
+	@echo "Running VS Code extension tests..."
+	cd apps/vscode-kekkai && npm test
+	@echo "✅ VS Code extension tests completed"
+
+vscode-lint: vscode-setup ## Lint VS Code extension
+	cd apps/vscode-kekkai && npm run lint
+
+vscode-package: vscode-build ## Package VS Code extension as .vsix
+	@if ! command -v vsce >/dev/null 2>&1; then \
+		echo "Installing vsce..."; \
+		npm install -g @vscode/vsce; \
+	fi
+	cd apps/vscode-kekkai && vsce package
+	@echo "✅ Extension packaged in apps/vscode-kekkai/*.vsix"
+
 clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage coverage.xml dist build *.egg-info src/*.egg-info .benchmarks htmlcov
+	rm -rf apps/vscode-kekkai/out apps/vscode-kekkai/node_modules apps/vscode-kekkai/*.vsix

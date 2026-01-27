@@ -1,0 +1,86 @@
+{
+  "name": "vscode-kekkai",
+  "displayName": "Kekkai Security Scanner",
+  "description": "Local-first security scanning integrated into VS Code",
+  "version": "0.1.0",
+  "publisher": "kademoslabs",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kademoslabs/kekkai"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Linters",
+    "Other"
+  ],
+  "keywords": [
+    "security",
+    "scanner",
+    "sast",
+    "sca",
+    "vulnerability"
+  ],
+  "activationEvents": [
+    "workspaceContains:**/*"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "kekkai.scan",
+        "title": "Kekkai: Run Security Scan"
+      },
+      {
+        "command": "kekkai.clearDiagnostics",
+        "title": "Kekkai: Clear Diagnostics"
+      }
+    ],
+    "configuration": {
+      "title": "Kekkai",
+      "properties": {
+        "kekkai.scanDebounceMs": {
+          "type": "number",
+          "default": 30000,
+          "description": "Minimum time between scans in milliseconds"
+        },
+        "kekkai.autoScanOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically scan when files are saved"
+        },
+        "kekkai.cliPath": {
+          "type": "string",
+          "default": "kekkai",
+          "description": "Path to kekkai CLI executable"
+        },
+        "kekkai.scanTimeoutMs": {
+          "type": "number",
+          "default": 300000,
+          "description": "Maximum scan duration in milliseconds (default: 5 minutes)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "test": "node ./out/test/runTests.js",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.6",
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0",
+    "@vscode/test-electron": "^2.3.8",
+    "eslint": "^8.56.0",
+    "mocha": "^10.2.0",
+    "typescript": "^5.3.3"
+  }
+}
