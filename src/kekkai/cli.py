@@ -169,6 +169,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Disable prompt injection sanitization (NOT RECOMMENDED)",
     )
 
+    # Triage TUI subcommand
+    triage_parser = subparsers.add_parser("triage", help="interactively triage security findings")
+    triage_parser.add_argument(
+        "--input",
+        type=str,
+        help="Path to findings JSON file (from scan output)",
+    )
+    triage_parser.add_argument(
+        "--output",
+        type=str,
+        help="Path for .kekkaiignore output (default: .kekkaiignore)",
+    )
+
     parsed = parser.parse_args(args)
     if parsed.command == "init":
         return _command_init(parsed.config, parsed.force)
@@ -193,6 +206,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _command_dojo(parsed)
     if parsed.command == "threatflow":
         return _command_threatflow(parsed)
+    if parsed.command == "triage":
+        return _command_triage(parsed)
 
     parser.print_help()
     return 1
@@ -757,6 +772,27 @@ def _threatflow_banner() -> str:
         "=========================================\n"
         "STRIDE analysis powered by local-first LLM\n"
     )
+
+
+def _command_triage(parsed: argparse.Namespace) -> int:
+    """Run interactive triage TUI."""
+    from .triage import run_triage
+
+    input_path_str = cast(str | None, getattr(parsed, "input", None))
+    output_path_str = cast(str | None, getattr(parsed, "output", None))
+
+    input_path = Path(input_path_str).expanduser().resolve() if input_path_str else None
+    output_path = Path(output_path_str).expanduser().resolve() if output_path_str else None
+
+    if input_path and not input_path.exists():
+        console.print(f"[danger]Error:[/danger] Input file not found: {input_path}")
+        return 1
+
+    console.print("[bold cyan]Kekkai Triage[/bold cyan] - Interactive Finding Review")
+    console.print("Use j/k to navigate, f=false positive, c=confirmed, d=deferred")
+    console.print("Press Ctrl+S to save, q to quit\n")
+
+    return run_triage(input_path=input_path, output_path=output_path)
 
 
 def _resolve_dojo_compose_dir(parsed: argparse.Namespace) -> str | None:
