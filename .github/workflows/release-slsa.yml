@@ -1,6 +1,7 @@
 name: Release with SLSA Provenance
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'v*.*.*'
