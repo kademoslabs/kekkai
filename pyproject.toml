@@ -1,7 +1,7 @@
 [project]
 name = "kekkai-cli"
-version = "1.0.1"
-description = "Kekkai/Regulon monorepo (local-first AppSec orchestration + compliance checker)"
+version = "1.0.2"
+description = "Kekkai monorepo (local-first AppSec orchestration + compliance checker)"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
