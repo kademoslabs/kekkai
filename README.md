@@ -1,18 +1,21 @@
 <p align="center">
   <img src="https://raw.githubusercontent.com/kademoslabs/assets/main/logos/kekkai-slim.png" alt="Kekkai CLI Logo" width="250"/>
 </p>
+
 <p align="center"><i>One command. Clean AppSec reports.</i></p>
 <p align="center">
-  <img src="https://img.shields.io/badge/license-MIT-blue.svg"/>
-  <img src="https://img.shields.io/badge/status-active-brightgreen"/>
+  <img src="https://img.shields.io/github/actions/workflow/status/kademoslabs/kekkai/docker-publish.yml?logo=github"/>
+  <img src ="https://img.shields.io/circleci/build/github/kademoslabs/kekkai?logo=circleci"/>
+  <img src="https://img.shields.io/pypi/l/kekkai-cli?pypiBaseUrl=https%3A%2F%2Fpypi.org&logo=pypi"/>
 </p>
 
-# Kekkai 🛡️
+# Kekkai
 
 **Security that moves at developer speed.**
+
 *Local-first orchestration for Trivy, Semgrep, and DefectDojo.*
 
-![Hero GIF](https://raw.githubusercontent.com/kademoslabs/assets/main/screenshots/kekkai-demo.gif)
+![Hero GIF](https://raw.githubusercontent.com/kademoslabs/assets/main/screenshots/kekkai-hero.gif)
 
 ---
 
@@ -28,14 +31,7 @@ Stop fighting with Docker Compose. Start scanning in 30 seconds.
 pipx install kekkai-cli
 ```
 
-**Option 2: Homebrew (macOS/Linux)**
-
-```bash
-brew tap kademoslabs/tap
-brew install kekkai
-```
-
-**Option 3: Docker (No Python Required)**
+**Option 2: Docker (No Python Required)**
 
 ```bash
 # Build image
@@ -48,19 +44,11 @@ docker build -t kademoslabs/kekkai:latest -f apps/kekkai/Dockerfile .
 alias kekkai="$(pwd)/scripts/kekkai-docker"
 ```
 
-**Option 4: Scoop (Windows)**
-
-```powershell
-scoop bucket add kademoslabs https://github.com/kademoslabs/scoop-bucket
-scoop install kekkai
-```
-
-**Option 5: pip (Traditional)**
+**Option 3: pip (Traditional)**
 
 ```bash
 pip install kekkai-cli
 ```
-
 
 
 ### 1. Scan your project (Local)
@@ -122,3 +110,13 @@ For teams that need centralized management, **Kekkai Portal** offers:
 - **[Automated Distribution Updates](docs/ci/automated-distributions.md)** - CI/CD distribution triggers
 - **[CI Architecture](/.docs/development/ci-architecture.md)** - Developer guide for distribution automation
 - **[Homebrew Maintenance](docs/ci/homebrew-maintenance.md)** - Homebrew tap management
+---
+
+## CI/CD Status
+
+[![Kekkai Security Scan](https://github.com/kademoslabs/kekkai/actions/workflows/kekkai-pr-scan.yml/badge.svg)](https://github.com/kademoslabs/kekkai/actions/workflows/kekkai-pr-scan.yml)
+[![Docker Image Publish](https://github.com/kademoslabs/kekkai/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/kademoslabs/kekkai/actions/workflows/docker-publish.yml)
+[![Docker Security Scan](https://github.com/kademoslabs/kekkai/actions/workflows/docker-security-scan.yml/badge.svg)](https://github.com/kademoslabs/kekkai/actions/workflows/docker-security-scan.yml)
+[![Cross‑Platform Tests](https://github.com/kademoslabs/kekkai/actions/workflows/test-cross-platform.yml/badge.svg)](https://github.com/kademoslabs/kekkai/actions/workflows/test-cross-platform.yml)
+[![Release with SLSA Provenance](https://github.com/kademoslabs/kekkai/actions/workflows/release-slsa.yml/badge.svg)](https://github.com/kademoslabs/kekkai/actions/workflows/release-slsa.yml)
+- 
