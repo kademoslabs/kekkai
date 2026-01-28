@@ -13,37 +13,43 @@ class TestCLIOutputConsistency:
 
     def test_help_output_format(self) -> None:
         """Verify --help output format is platform-agnostic."""
-        import subprocess
+        import io
+        from contextlib import redirect_stderr, redirect_stdout
 
-        result = subprocess.run(
-            ["kekkai", "--help"],
-            capture_output=True,
-            text=True,
-        )
+        from kekkai.cli import main
 
-        # If kekkai is installed, check output format
-        if result.returncode == 0:
-            assert "usage:" in result.stdout.lower() or "Usage:" in result.stdout
-            assert "kekkai" in result.stdout
-        else:
-            pytest.skip("kekkai CLI not available")
+        stdout_capture = io.StringIO()
+        stderr_capture = io.StringIO()
+
+        try:
+            with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
+                main(["--help"])
+        except SystemExit:
+            pass  # argparse calls sys.exit on --help
+
+        combined = stdout_capture.getvalue() + stderr_capture.getvalue()
+        assert "usage:" in combined.lower() or "Usage:" in combined
+        assert "kekkai" in combined.lower()
 
     def test_version_output_format(self) -> None:
         """Verify --version output format is consistent."""
-        import subprocess
+        import io
+        from contextlib import redirect_stderr, redirect_stdout
 
-        result = subprocess.run(
-            ["kekkai", "--version"],
-            capture_output=True,
-            text=True,
-        )
+        from kekkai.cli import main
 
-        # If kekkai is installed, version should be shown
-        if result.returncode == 0:
-            # Version output should exist
-            assert len(result.stdout) > 0 or len(result.stderr) > 0
-        else:
-            pytest.skip("kekkai CLI not available")
+        stdout_capture = io.StringIO()
+        stderr_capture = io.StringIO()
+
+        try:
+            with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
+                main(["--version"])
+        except SystemExit:
+            pass  # argparse calls sys.exit on --version
+
+        # Version output should exist (may go to stdout or stderr)
+        combined = stdout_capture.getvalue() + stderr_capture.getvalue()
+        assert len(combined) > 0
 
 
 @pytest.mark.regression
@@ -281,24 +287,27 @@ class TestGoldenSnapshots:
 
     def test_help_text_structure(self) -> None:
         """Verify help text has expected structure."""
-        import subprocess
+        import io
+        from contextlib import redirect_stderr, redirect_stdout
 
-        result = subprocess.run(
-            ["kekkai", "--help"],
-            capture_output=True,
-            text=True,
-        )
+        from kekkai.cli import main
 
-        if result.returncode == 0:
-            output = result.stdout.lower()
+        stdout_capture = io.StringIO()
+        stderr_capture = io.StringIO()
 
-            # Should contain these sections
-            expected_keywords = ["usage", "options", "commands"]
+        try:
+            with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
+                main(["--help"])
+        except SystemExit:
+            pass  # argparse calls sys.exit on --help
 
-            # At least one should be present
-            assert any(keyword in output for keyword in expected_keywords)
-        else:
-            pytest.skip("kekkai CLI not available")
+        output = (stdout_capture.getvalue() + stderr_capture.getvalue()).lower()
+
+        # Should contain these sections
+        expected_keywords = ["usage", "options", "commands"]
+
+        # At least one should be present
+        assert any(keyword in output for keyword in expected_keywords)
 
     def test_config_schema_consistent(self) -> None:
         """Verify config schema hasn't changed unexpectedly."""
