@@ -108,6 +108,17 @@ jobs:
         run: |
           twine upload dist/*.whl dist/*.tar.gz
 
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --title "Kekkai ${{ github.ref_name }}" \
+            --generate-notes \
+            dist/*.whl \
+            dist/*.tar.gz
+
       - name: Upload signatures to release
         if: startsWith(github.ref, 'refs/tags/')
         env:

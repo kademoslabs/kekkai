@@ -91,7 +91,7 @@ jobs:
             . .venv/bin/activate
             make docker-security-test
 
-  build_release:
+  build_verification:
     docker:
       - image: cimg/python:3.12
     steps:
@@ -104,14 +104,13 @@ jobs:
             . .venv/bin/activate
             make setup
       - run:
-          name: Build release artifacts with checksums
+          name: Verify Build (Dry Run)
           command: |
             . .venv/bin/activate
             make release
       - run:
           name: Validate wheel artifacts
           command: |
-            . .venv/bin/activate
             ls -la dist/*.whl
             test -f dist/*.whl || (echo "ERROR: No wheel file found" && exit 1)
       - run:
@@ -122,56 +121,9 @@ jobs:
           name: Test Docker wrapper
           command: |
             make docker-test
-      - store_artifacts:
-          path: dist
-          destination: release-artifacts
-      - persist_to_workspace:
-          root: .
-          paths:
-            - dist
-
-  publish_release:
-    docker:
-      - image: cimg/python:3.12
-    steps:
-      - checkout
-      - attach_workspace:
-          at: .
-      - run:
-          name: Install GitHub CLI
-          command: |
-            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-            sudo apt-get update
-            sudo apt-get install -y gh
-      - run:
-          name: Verify release artifacts
-          command: |
-            echo "Checking release artifacts..."
-            ls -la dist/
-            test -f dist/*.whl || (echo "ERROR: No wheel file found" && exit 1)
-            test -f dist/*.tar.gz || (echo "ERROR: No tarball found" && exit 1)
-            test -f dist/requirements-frozen.txt || (echo "ERROR: No SBOM found" && exit 1)
-            echo "All artifacts present"
-      - run:
-          name: Create GitHub Release
-          environment:
-            GH_TOKEN: $GITHUB_TOKEN
-          command: |
-            gh release create "$CIRCLE_TAG" \
-              --repo kademoslabs/kekkai-cli \
-              --title "Kekkai $CIRCLE_TAG" \
-              --notes "Release $CIRCLE_TAG" \
-              dist/*.whl \
-              dist/*.tar.gz \
-              dist/requirements-frozen.txt
-            # Note: GitHub Actions trigger-distributions workflow
-            # will automatically run after this release is published
-            # to update Homebrew, Docker Hub, Scoop, and Chocolatey
 
 workflows:
   # Develop branch: Fast checks only (Linux)
-  # GitHub Actions runs cross-platform tests on PRs
   develop:
     jobs:
       - test_quick:
@@ -180,23 +132,21 @@ workflows:
               only: develop
 
   # Main branch: Full Linux testing + build validation
-  # GitHub Actions runs cross-platform validation in parallel
   main:
     jobs:
       - test_full:
           filters:
             branches:
               only: main
-      - build_release:
+      - build_verification:
           requires:
             - test_full
           filters:
             branches:
               only: main
 
-  # Release workflow: Full testing + deployment
-  # Triggered by version tags (v*.*.*)
-  # After publish, GitHub Actions trigger-distributions workflow runs automatically
+  # Release workflow: Tests only
+  # Actual publishing is handled by GitHub Actions (release-slsa.yml)
   release:
     jobs:
       - test_full:
@@ -205,21 +155,3 @@ workflows:
               only: /^v.*/
             branches:
               ignore: /.*/
-      - build_release:
-          requires:
-            - test_full
-          filters:
-            tags:
-              only: /^v.*/
-            branches:
-              ignore: /.*/
-      - publish_release:
-          requires:
-            - build_release
-          filters:
-            tags:
-              only: /^v.*/
-            branches:
-              ignore: /.*/
-          context:
-            - distribution-automation
