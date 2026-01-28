@@ -6,7 +6,7 @@
 <p align="center">
   <img src="https://img.shields.io/github/actions/workflow/status/kademoslabs/kekkai/docker-publish.yml?logo=github"/>
   <img src ="https://img.shields.io/circleci/build/github/kademoslabs/kekkai?logo=circleci"/>
-  <img src="https://img.shields.io/pypi/l/kekkai-cli?pypiBaseUrl=https%3A%2F%2Fpypi.org&logo=pypi"/>
+  <img src="https://img.shields.io/pypi/v/kekkai-cli?pypiBaseUrl=https%3A%2F%2Fpypi.org&logo=pypi"/>
 </p>
 
 # Kekkai
