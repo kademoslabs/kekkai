@@ -7,6 +7,7 @@ and executes correctly with all basic commands.
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess  # nosec B404
 import sys
 from pathlib import Path
@@ -22,7 +23,7 @@ def test_pipx_install_and_run(tmp_path: Path) -> None:
     # Use project root for installation
     project_root = Path(__file__).parent.parent.parent
 
-    # Install kekkai via pipx in isolated environment
+    # Install kekkai-cli via pipx in isolated environment
     result = subprocess.run(  # noqa: S603  # nosec B603
         [sys.executable, "-m", "pipx", "install", str(project_root), "--force"],
         capture_output=True,
@@ -36,19 +37,25 @@ def test_pipx_install_and_run(tmp_path: Path) -> None:
         pytest.skip(f"pipx not available or install failed: {result.stderr}")
 
     try:
+        # Find the installed kekkai binary (avoid pipx run which downloads from PyPI)
+        kekkai_bin = shutil.which("kekkai")
+        if kekkai_bin is None:
+            pytest.fail("kekkai binary not found in PATH after pipx install")
+
         # Test --version
         version_result = subprocess.run(  # noqa: S603  # nosec B603
-            [sys.executable, "-m", "pipx", "run", "kekkai", "--version"],
+            [kekkai_bin, "--version"],
             capture_output=True,
             text=True,
             timeout=30,
             check=False,
         )
         assert version_result.returncode == 0, f"--version failed: {version_result.stderr}"
+        assert "1.0.0" in version_result.stdout, f"Unexpected version: {version_result.stdout}"
 
         # Test --help
         help_result = subprocess.run(  # noqa: S603  # nosec B603
-            [sys.executable, "-m", "pipx", "run", "kekkai", "--help"],
+            [kekkai_bin, "--help"],
             capture_output=True,
             text=True,
             timeout=30,
@@ -69,7 +76,7 @@ def test_pipx_install_and_run(tmp_path: Path) -> None:
             env["USERPROFILE"] = str(tmp_path)
 
         init_result = subprocess.run(  # noqa: S603  # nosec B603
-            [sys.executable, "-m", "pipx", "run", "kekkai", "init"],
+            [kekkai_bin, "init"],
             capture_output=True,
             text=True,
             timeout=30,
@@ -83,9 +90,9 @@ def test_pipx_install_and_run(tmp_path: Path) -> None:
         assert config_file.exists(), "Config file not created by init"
 
     finally:
-        # Cleanup: uninstall kekkai
+        # Cleanup: uninstall kekkai-cli (our package name, not 'kekkai')
         subprocess.run(  # noqa: S603  # nosec B603
-            [sys.executable, "-m", "pipx", "uninstall", "kekkai"],
+            [sys.executable, "-m", "pipx", "uninstall", "kekkai-cli"],
             capture_output=True,
             timeout=60,
             check=False,
