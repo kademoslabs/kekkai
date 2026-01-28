@@ -41,7 +41,8 @@ markers = [
   "integration: integration tests",
   "e2e: end-to-end tests",
   "regression: regression/golden tests",
-  "benchmark: performance benchmark tests"
+  "benchmark: performance benchmark tests",
+  "requires_admin: tests requiring admin privileges"
 ]
 
 [tool.coverage.run]

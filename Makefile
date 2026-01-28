@@ -66,9 +66,9 @@ release: build sbom ## Build release artifacts
 pipx-test: ## Validate pipx install works in isolation
 	python3 -m pip install -q -U pipx
 	pipx install . --force
-	pipx run kekkai --version
-	pipx run kekkai --help
-	pipx uninstall kekkai
+	kekkai --version
+	kekkai --help
+	pipx uninstall kekkai-cli
 
 docker-image: ## Build docker image for magic alias usage
 	docker build -t kademoslabs/kekkai:latest -f apps/kekkai/Dockerfile .
