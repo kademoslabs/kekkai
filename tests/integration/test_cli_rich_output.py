@@ -29,15 +29,16 @@ class TestCliRichOutput:
     def test_init_shows_quick_start(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        """Test that kekkai init shows Quick Start guide."""
+        """Test that kekkai init shows branding and config path."""
         monkeypatch.setenv("KEKKAI_HOME", str(tmp_path))
 
         result = main(["init"])
 
         assert result == 0
         captured = capsys.readouterr()
-        # Should contain Quick Start commands
-        assert "scan" in captured.out.lower()
+        # In non-TTY (CI), we show minimal output with branding and config path
+        assert "kekkai" in captured.out.lower()
+        assert "initialized config at" in captured.out.lower()
 
     def test_no_args_shows_banner(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
