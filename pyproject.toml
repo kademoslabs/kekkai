@@ -1,5 +1,5 @@
 [project]
-name = "kekkai"
+name = "kekkai-cli"
 version = "1.0.0"
 description = "Kekkai/Regulon monorepo (local-first AppSec orchestration + compliance checker)"
 readme = "README.md"
