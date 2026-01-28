@@ -89,7 +89,10 @@ def test_docker_wrapper_runs(tmp_path: Path) -> None:
         pytest.skip(f"Docker not available or build failed: {result.stderr}")
 
     assert result.returncode == 0, f"--help failed: {result.stderr}"
-    assert "kekkai" in result.stdout.lower(), "Help output missing 'kekkai'"
+    combined_output = (result.stdout + result.stderr).lower()
+    assert (
+        "kekkai" in combined_output
+    ), f"Help output missing 'kekkai': stdout={result.stdout!r}, stderr={result.stderr!r}"
 
 
 @pytest.mark.integration
@@ -113,7 +116,10 @@ def test_docker_wrapper_help(tmp_path: Path) -> None:
         pytest.skip(f"Docker not available: {result.stderr}")
 
     assert result.returncode == 0, f"--help failed: {result.stderr}"
-    assert "kekkai" in result.stdout.lower(), "Help output missing 'kekkai'"
+    combined_output = (result.stdout + result.stderr).lower()
+    assert (
+        "kekkai" in combined_output
+    ), f"Help output missing 'kekkai': stdout={result.stdout!r}, stderr={result.stderr!r}"
 
 
 @pytest.mark.integration

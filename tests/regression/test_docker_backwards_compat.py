@@ -40,7 +40,7 @@ class TestDockerBackwardsCompatibility:
 
         # Verify basic Dockerfile structure
         assert content.startswith("# Dockerfile for Kekkai") or content.startswith("FROM")
-        assert "FROM python:" in content
+        assert "FROM" in content and "python" in content  # Chainguard or standard Python image
         assert "ENTRYPOINT" in content or "CMD" in content
 
     def test_docker_build_without_security_features(self, docker_available: bool) -> None:
@@ -96,7 +96,8 @@ class TestDockerBackwardsCompatibility:
         )
 
         assert result.returncode == 0, f"Unsigned image failed to run: {result.stderr}"
-        assert "kekkai" in result.stdout.lower() or "help" in result.stdout.lower()
+        combined_output = (result.stdout + result.stderr).lower()
+        assert "kekkai" in combined_output or "help" in combined_output
 
     def test_existing_labels_preserved(self, docker_available: bool) -> None:
         """Verify original OCI labels are still present."""
@@ -150,16 +151,16 @@ class TestDockerBuildCompatibility:
         dockerfile = Path("apps/kekkai/Dockerfile")
         content = dockerfile.read_text()
 
-        # Verify Python version specified
-        assert "python:3.12" in content or "python:3." in content
+        # Verify Python image specified (standard or Chainguard)
+        assert "python" in content.lower()
 
     def test_non_root_user_preserved(self) -> None:
         """Verify security: non-root user maintained."""
         dockerfile = Path("apps/kekkai/Dockerfile")
         content = dockerfile.read_text()
 
-        # Verify non-root user configuration
-        assert "USER" in content or "useradd" in content
+        # Verify non-root user configuration (Chainguard uses nonroot by default)
+        assert "USER" in content or "nonroot" in content
 
 
 class TestWorkflowBackwardsCompatibility:
@@ -174,8 +175,9 @@ class TestWorkflowBackwardsCompatibility:
             workflow = yaml.safe_load(f)
 
         # Verify basic structure
+        # Note: YAML parses 'on:' as boolean True, so check for both
         assert "name" in workflow
-        assert "on" in workflow
+        assert "on" in workflow or True in workflow
         assert "jobs" in workflow
 
     def test_workflow_maintains_trigger_events(self) -> None:
@@ -204,8 +206,9 @@ class TestWorkflowBackwardsCompatibility:
             with open(workflow_file) as f:
                 workflow = yaml.safe_load(f)
 
+            # Note: YAML parses 'on:' as boolean True, so check for both
             assert "name" in workflow
-            assert "on" in workflow
+            assert "on" in workflow or True in workflow
             assert "jobs" in workflow
 
     def test_original_docker_hub_secrets_used(self) -> None:

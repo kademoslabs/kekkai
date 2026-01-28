@@ -3,7 +3,8 @@
   "repo_path": "/tmp/repo",
   "run_dir": "/tmp/kekkai/runs/fixed-run",
   "run_id": "fixed-run",
-  "schema_version": 1,
+  "scanners": null,
+  "schema_version": 2,
   "started_at": "2026-01-01T00:00:00+00:00",
   "status": "success",
   "steps": [

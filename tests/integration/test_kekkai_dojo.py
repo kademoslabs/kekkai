@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import platform
 import shutil
 import socket
@@ -18,6 +19,10 @@ pytestmark = [
     pytest.mark.skipif(
         platform.system() == "Windows",
         reason="DefectDojo uses Docker Compose with Linux containers",
+    ),
+    pytest.mark.skipif(
+        os.environ.get("CIRCLECI") == "true",
+        reason="CircleCI remote Docker cannot expose ports to localhost",
     ),
 ]
 
