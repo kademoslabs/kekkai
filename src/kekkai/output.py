@@ -10,6 +10,8 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from rich import box
+from rich.align import Align
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -22,6 +24,7 @@ if TYPE_CHECKING:
 __all__ = [
     "console",
     "splash",
+    "print_splash",
     "print_scan_summary",
     "sanitize_for_terminal",
     "sanitize_error",
@@ -33,10 +36,12 @@ ANSI_ESCAPE_PATTERN = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
 KEKKAI_THEME = Theme(
     {
         "info": "dim cyan",
-        "warning": "yellow",
+        "warning": "magenta",
         "danger": "bold red",
         "success": "bold green",
-        "header": "bold white on blue",
+        "header": "bold white",
+        "title": "bold cyan",
+        "text": "white",
         "muted": "dim white",
         "brand": "bold cyan",
     }
@@ -45,14 +50,77 @@ KEKKAI_THEME = Theme(
 console = Console(theme=KEKKAI_THEME)
 
 BANNER_ASCII = r"""
- _  __     _    _         _
-| |/ /___ | | _| | ____ _(_)
-| ' // _ \| |/ / |/ / _` | |
-| . \  __/|   <|   < (_| | |
-|_|\_\___|_|\_\_|\_\__,_|_|
+    ██ ▄█▀▓█████  ██ ▄█▀ ██ ▄█▀▄▄▄       ██▓
+    ██▄█▒ ▓█   ▀  ██▄█▒  ██▄█▒▒████▄     ▓██▒
+   ▓███▄░ ▒███   ▓███▄░ ▓███▄░▒██  ▀█▄   ▒██▒
+   ▓██ █▄ ▒▓█  ▄ ▓██ █▄ ▓██ █▄░██▄▄▄▄██ ░██░
+   ▒██▒ █▄░▒████▒▒██▒ █▄▒██▒ █▄▓█   ▓██▒░██░
+   ▒ ▒▒ ▓▒░░ ▒░ ░▒ ▒▒ ▓▒▒ ▒▒ ▓▒▒▒   ▓▒█░░▓
+   ░ ░▒ ▒░ ░ ░  ░░ ░▒ ▒░░ ░▒ ▒░ ▒   ▒▒ ░ ▒ ░
+   ░ ░░ ░    ░    ░ ░░ ░ ░ ░░ ░   ░   ▒
 """
 
 VERSION = "1.0.0"
+
+
+def print_splash() -> None:
+    """Print the Kekkai splash screen with menu and tips."""
+    header_text = Text(BANNER_ASCII, style="header")
+    subtitle = Text("Local-first AppSec Orchestrator", style="info")
+    subtitle.justify = "center"
+
+    header_panel = Panel(
+        Align.center(Text.assemble(header_text, "\n", subtitle)),
+        box=box.HEAVY,
+        style="info",
+        padding=(1, 2),
+    )
+
+    menu_table = Table(box=box.SIMPLE, show_header=False, padding=(0, 2), expand=True)
+    menu_table.add_column("Command", style="title", ratio=1)
+    menu_table.add_column("Description", style="text", ratio=3)
+
+    menu_table.add_row("kekkai scan", "Run a comprehensive security scan in the current directory.")
+    menu_table.add_row("kekkai dojo", "Interact with your DefectDojo instance (import/export).")
+    menu_table.add_row("kekkai report", "Generate compliance and audit reports.")
+    menu_table.add_row("kekkai config", "Configure local settings and API keys.")
+
+    menu_panel = Panel(
+        menu_table,
+        title="[header]COMMAND MENU[/]",
+        border_style="dim cyan",
+        padding=(1, 2),
+    )
+
+    tips_content = Text()
+    tips_content.append("Best Practices:\n", style="warning")
+    tips_content.append(" - Run scans locally before pushing to CI to save time.\n", style="text")
+    tips_content.append(" - Use .kekkaiignore to filter out known false positives.\n", style="text")
+    tips_content.append(
+        " - Keep your CLI updated to catch the latest CVE signatures.\n\n", style="text"
+    )
+
+    tips_content.append("Open Source:\n", style="success")
+    tips_content.append(
+        " We are looking for collaborators! Star us on GitHub or submit a PR.\n\n", style="text"
+    )
+
+    tips_content.append("Enterprise Features:\n", style="danger")
+    tips_content.append(
+        " ThreatFlow visualization and RBAC require an active Enterprise license.", style="text"
+    )
+
+    tips_panel = Panel(
+        tips_content,
+        title="[header]QUICK TIPS & INFO[/]",
+        border_style="dim cyan",
+        padding=(1, 2),
+    )
+
+    console.print(header_panel)
+    console.print(menu_panel)
+    console.print(tips_panel)
+    console.print()
 
 
 def splash(*, force_plain: bool = False) -> str:
@@ -67,15 +135,8 @@ def splash(*, force_plain: bool = False) -> str:
     if force_plain or not console.is_terminal:
         return f"Kekkai v{VERSION} - Local-First AppSec Orchestrator"
 
-    banner_text = Text(BANNER_ASCII.strip(), style="brand")
-    panel = Panel(
-        banner_text,
-        subtitle=f"[muted]v{VERSION} — Local-First AppSec Orchestrator[/muted]",
-        border_style="blue",
-        padding=(0, 2),
-    )
     with console.capture() as capture:
-        console.print(panel)
+        print_splash()
     result: str = capture.get()
     return result
 
