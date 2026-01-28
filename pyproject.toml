@@ -1,6 +1,6 @@
 [project]
 name = "kekkai-cli"
-version = "1.0.2"
+version = "1.0.3"
 description = "Kekkai monorepo (local-first AppSec orchestration + compliance checker)"
 readme = "README.md"
 requires-python = ">=3.12"

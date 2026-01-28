@@ -145,12 +145,21 @@ jobs:
             sudo apt-get update
             sudo apt-get install -y gh
       - run:
+          name: Verify release artifacts
+          command: |
+            echo "Checking release artifacts..."
+            ls -la dist/
+            test -f dist/*.whl || (echo "ERROR: No wheel file found" && exit 1)
+            test -f dist/*.tar.gz || (echo "ERROR: No tarball found" && exit 1)
+            test -f dist/requirements-frozen.txt || (echo "ERROR: No SBOM found" && exit 1)
+            echo "All artifacts present"
+      - run:
           name: Create GitHub Release
           environment:
             GH_TOKEN: $GITHUB_TOKEN
           command: |
-            VERSION=$(echo $CIRCLE_TAG | sed 's/^v//')
             gh release create "$CIRCLE_TAG" \
+              --repo kademoslabs/kekkai-cli \
               --title "Kekkai $CIRCLE_TAG" \
               --notes "Release $CIRCLE_TAG" \
               dist/*.whl \
