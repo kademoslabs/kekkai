@@ -11,9 +11,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from rich import box
-from rich.align import Align
-from rich.console import Console
-from rich.panel import Panel
+from rich.console import Console, Group
+from rich.padding import Padding
+from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
 from rich.theme import Theme
@@ -23,12 +23,13 @@ if TYPE_CHECKING:
 
 __all__ = [
     "console",
-    "splash",
-    "print_splash",
+    "print_dashboard",
     "print_scan_summary",
     "sanitize_for_terminal",
     "sanitize_error",
     "ScanSummaryRow",
+    "VERSION",
+    "splash",
 ]
 
 ANSI_ESCAPE_PATTERN = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
@@ -36,114 +37,88 @@ ANSI_ESCAPE_PATTERN = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
 KEKKAI_THEME = Theme(
     {
         "info": "dim cyan",
-        "warning": "magenta",
+        "warning": "yellow",
         "danger": "bold red",
         "success": "bold green",
         "header": "bold white",
-        "title": "bold cyan",
-        "text": "white",
         "muted": "dim white",
         "brand": "bold cyan",
+        "command": "bold white",
+        "desc": "dim white",
     }
 )
 
 console = Console(theme=KEKKAI_THEME)
 
 BANNER_ASCII = r"""
-    ██ ▄█▀▓█████  ██ ▄█▀ ██ ▄█▀▄▄▄       ██▓
-    ██▄█▒ ▓█   ▀  ██▄█▒  ██▄█▒▒████▄     ▓██▒
-   ▓███▄░ ▒███   ▓███▄░ ▓███▄░▒██  ▀█▄   ▒██▒
-   ▓██ █▄ ▒▓█  ▄ ▓██ █▄ ▓██ █▄░██▄▄▄▄██ ░██░
-   ▒██▒ █▄░▒████▒▒██▒ █▄▒██▒ █▄▓█   ▓██▒░██░
-   ▒ ▒▒ ▓▒░░ ▒░ ░▒ ▒▒ ▓▒▒ ▒▒ ▓▒▒▒   ▓▒█░░▓
-   ░ ░▒ ▒░ ░ ░  ░░ ░▒ ▒░░ ░▒ ▒░ ▒   ▒▒ ░ ▒ ░
-   ░ ░░ ░    ░    ░ ░░ ░ ░ ░░ ░   ░   ▒
+   __        __   __        _
+  / /_____  / /__/ /_____ _(_)
+ /  '_/ _ \/  '_/  '_/ _ `/ /
+/_/\_\\___/_/\_/_/\_\\_,_/_/
 """
 
 VERSION = "1.0.3"
 
 
-def print_splash() -> None:
-    """Print the Kekkai splash screen with menu and tips."""
-    header_text = Text(BANNER_ASCII, style="header")
-    subtitle = Text("Local-first AppSec Orchestrator", style="info")
-    subtitle.justify = "center"
+def print_dashboard() -> None:
+    """Render the professional Kekkai dashboard."""
+    if not console.is_terminal:
+        print(f"Kekkai v{VERSION} - Local-First AppSec Orchestrator")
+        return
 
-    header_panel = Panel(
-        Align.center(Text.assemble(header_text, "\n", subtitle)),
-        box=box.HEAVY,
-        style="info",
-        padding=(1, 2),
+    header_table = Table.grid(padding=(0, 2), expand=False)
+
+    logo = Text(BANNER_ASCII.strip("\n"), style="brand")
+
+    meta = Text()
+    meta.append(f"\nv{VERSION}", style="muted")
+    meta.append("\nLocal-First AppSec Orchestrator", style="bold white")
+    meta.append("\nhttps://github.com/kademoslabs/kekkai", style="blue link")
+
+    header_table.add_row(logo, meta)
+
+    menu_table = Table(
+        box=None,
+        padding=(0, 2),
+        show_header=True,
+        header_style="dim cyan",
+        expand=True,
+    )
+    menu_table.add_column("Command", style="command", ratio=1)
+    menu_table.add_column("Description", style="desc", ratio=3)
+
+    menu_table.add_row("kekkai scan", "Run security scan in current directory")
+    menu_table.add_row("kekkai threatflow", "Generate AI-powered threat model")
+    menu_table.add_row("kekkai dojo", "Manage local DefectDojo instance")
+    menu_table.add_row("kekkai triage", "Interactive finding review (TUI)")
+    menu_table.add_row("kekkai report", "Generate compliance reports")
+    menu_table.add_row("kekkai config", "Manage settings and keys")
+
+    tips_grid = Table.grid(padding=(0, 1))
+    tips_grid.add_row("⚡", "[dim]Run scans locally before pushing to CI to save time.[/dim]")
+    tips_grid.add_row("🔒", "[dim]ThreatFlow requires an API key for remote models.[/dim]")
+    tips_grid.add_row("🤝", "[dim]Star us on GitHub to support open source development.[/dim]")
+
+    dashboard = Group(
+        Padding(header_table, (1, 1, 1, 1)),
+        Rule(style="dim cyan"),
+        Padding(menu_table, (1, 2)),
+        Rule(style="dim cyan"),
+        Padding(tips_grid, (1, 2, 1, 2)),
+        Text("\n"),
     )
 
-    menu_table = Table(box=box.SIMPLE, show_header=False, padding=(0, 2), expand=True)
-    menu_table.add_column("Command", style="title", ratio=1)
-    menu_table.add_column("Description", style="text", ratio=3)
-
-    menu_table.add_row("kekkai scan", "Run a comprehensive security scan in the current directory.")
-    menu_table.add_row("kekkai dojo", "Interact with your DefectDojo instance (import/export).")
-    menu_table.add_row("kekkai report", "Generate compliance and audit reports.")
-    menu_table.add_row("kekkai config", "Configure local settings and API keys.")
-
-    menu_panel = Panel(
-        menu_table,
-        title="[header]COMMAND MENU[/]",
-        border_style="dim cyan",
-        padding=(1, 2),
-    )
-
-    tips_content = Text()
-    tips_content.append("Best Practices:\n", style="warning")
-    tips_content.append(" - Run scans locally before pushing to CI to save time.\n", style="text")
-    tips_content.append(" - Use .kekkaiignore to filter out known false positives.\n", style="text")
-    tips_content.append(
-        " - Keep your CLI updated to catch the latest CVE signatures.\n\n", style="text"
-    )
-
-    tips_content.append("Open Source:\n", style="success")
-    tips_content.append(
-        " We are looking for collaborators! Star us on GitHub or submit a PR.\n\n", style="text"
-    )
-
-    tips_content.append("Enterprise Features:\n", style="danger")
-    tips_content.append(
-        " ThreatFlow visualization and RBAC require an active Enterprise license.", style="text"
-    )
-
-    tips_panel = Panel(
-        tips_content,
-        title="[header]QUICK TIPS & INFO[/]",
-        border_style="dim cyan",
-        padding=(1, 2),
-    )
-
-    console.print(header_panel)
-    console.print(menu_panel)
-    console.print(tips_panel)
-    console.print()
+    console.print(dashboard)
 
 
 def splash(*, force_plain: bool = False) -> str:
-    """Render the Kekkai splash banner.
-
-    Args:
-        force_plain: If True, return plain text regardless of TTY.
-
-    Returns:
-        Banner string for display.
-    """
-    if force_plain or not console.is_terminal:
-        return f"Kekkai v{VERSION} - Local-First AppSec Orchestrator"
-
-    with console.capture() as capture:
-        print_splash()
-    result: str = capture.get()
-    return result
-
-
-def splash_minimal() -> str:
-    """Return minimal splash for non-TTY environments."""
+    """Deprecated: Use print_dashboard() instead."""
     return f"Kekkai v{VERSION} - Local-First AppSec Orchestrator"
+
+
+def print_quick_start() -> str:
+    """Deprecated: Content moved to print_dashboard()."""
+    return ""
 
 
 @dataclass
@@ -161,15 +136,7 @@ def print_scan_summary(
     *,
     force_plain: bool = False,
 ) -> str:
-    """Render scan results as a formatted table.
-
-    Args:
-        rows: Scan result rows to display.
-        force_plain: If True, return plain text regardless of TTY.
-
-    Returns:
-        Formatted table string.
-    """
+    """Render scan results as a formatted table."""
     if force_plain or not console.is_terminal:
         lines = ["Scan Summary:"]
         for row in rows:
@@ -180,7 +147,7 @@ def print_scan_summary(
             )
         return "\n".join(lines)
 
-    table = Table(title="Scan Summary", show_header=True, header_style="bold")
+    table = Table(title="Scan Summary", show_header=True, header_style="bold", box=box.SIMPLE)
     table.add_column("Scanner", style="cyan")
     table.add_column("Status", style="green")
     table.add_column("Findings", justify="right")
@@ -202,33 +169,12 @@ def print_scan_summary(
 
 
 def sanitize_for_terminal(text: str) -> str:
-    """Strip ANSI escape sequences from untrusted content.
-
-    Prevents terminal escape injection attacks where malicious content
-    could manipulate terminal display or hide warnings.
-
-    Args:
-        text: Potentially untrusted text to sanitize.
-
-    Returns:
-        Text with all ANSI escape sequences removed.
-    """
+    """Strip ANSI escape sequences from untrusted content."""
     return ANSI_ESCAPE_PATTERN.sub("", text)
 
 
 def sanitize_error(error: str | Exception, *, max_length: int = 200) -> str:
-    """Sanitize error messages for user display.
-
-    Removes sensitive information like full paths and stack traces
-    to prevent information disclosure.
-
-    Args:
-        error: Error message or exception to sanitize.
-        max_length: Maximum length of returned message.
-
-    Returns:
-        Sanitized, truncated error message.
-    """
+    """Sanitize error messages for user display."""
     message = str(error) if isinstance(error, Exception) else error
     message = ANSI_ESCAPE_PATTERN.sub("", message)
     message = re.sub(r"/[^\s:]+", "[path]", message)
@@ -239,41 +185,3 @@ def sanitize_error(error: str | Exception, *, max_length: int = 200) -> str:
         message = message[:max_length] + "..."
 
     return message
-
-
-def print_quick_start() -> str:
-    """Render Quick Start guide panel.
-
-    Returns:
-        Formatted Quick Start panel string.
-    """
-    if not console.is_terminal:
-        return (
-            "Quick Start:\n"
-            "  1. kekkai scan --repo .     # Scan current directory\n"
-            "  2. kekkai threatflow        # Generate threat model\n"
-            "  3. kekkai dojo up           # Start DefectDojo\n"
-        )
-
-    content = Text()
-    content.append("1. ", style="bold cyan")
-    content.append("kekkai scan --repo .", style="green")
-    content.append("     # Scan current directory\n")
-    content.append("2. ", style="bold cyan")
-    content.append("kekkai threatflow", style="green")
-    content.append("        # Generate threat model\n")
-    content.append("3. ", style="bold cyan")
-    content.append("kekkai dojo up", style="green")
-    content.append("           # Start DefectDojo")
-
-    panel = Panel(
-        content,
-        title="[bold]Quick Start[/bold]",
-        border_style="green",
-        padding=(1, 2),
-    )
-
-    with console.capture() as capture:
-        console.print(panel)
-    result: str = capture.get()
-    return result

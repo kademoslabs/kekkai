@@ -5,12 +5,11 @@ from __future__ import annotations
 from kekkai.output import (
     ScanSummaryRow,
     console,
-    print_quick_start,
+    print_dashboard,
     print_scan_summary,
     sanitize_error,
     sanitize_for_terminal,
     splash,
-    splash_minimal,
 )
 
 
@@ -82,8 +81,8 @@ class TestSanitizeError:
 class TestSplash:
     """Tests for splash banner rendering."""
 
-    def test_splash_minimal_returns_version(self) -> None:
-        output = splash_minimal()
+    def test_splash_returns_version(self) -> None:
+        output = splash()
         assert "Kekkai" in output
         assert "Local-First AppSec Orchestrator" in output
 
@@ -95,6 +94,14 @@ class TestSplash:
     def test_splash_contains_branding(self) -> None:
         output = splash(force_plain=True)
         assert "Local-First AppSec Orchestrator" in output
+
+
+class TestPrintDashboard:
+    """Tests for dashboard rendering."""
+
+    def test_print_dashboard_exists(self) -> None:
+        # print_dashboard should exist and be callable
+        assert callable(print_dashboard)
 
 
 class TestPrintScanSummary:
@@ -155,16 +162,6 @@ class TestPrintScanSummary:
         output = print_scan_summary(rows, force_plain=True)
         assert "\x1b[" not in output
         assert "malicious" in output
-
-
-class TestPrintQuickStart:
-    """Tests for Quick Start guide rendering."""
-
-    def test_quick_start_contains_commands(self) -> None:
-        # Force non-TTY mode by checking the plain text path
-        output = print_quick_start()
-        assert "kekkai scan" in output or "scan" in output
-        assert "threatflow" in output or "threat" in output
 
 
 class TestConsole:

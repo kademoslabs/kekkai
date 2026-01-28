@@ -16,11 +16,10 @@ from .output import (
     VERSION,
     ScanSummaryRow,
     console,
-    print_quick_start,
+    print_dashboard,
     print_scan_summary,
     sanitize_error,
     sanitize_for_terminal,
-    splash,
 )
 from .paths import app_base_dir, config_path, ensure_dir, is_within_base, safe_join
 from .policy import (
@@ -259,10 +258,7 @@ def _handle_no_args() -> int:
     cfg_path = config_path()
     if not cfg_path.exists():
         return _command_init(None, False)
-    console.print(splash())
-    console.print("Config exists. Run one of:")
-    console.print("  [green]kekkai scan[/green]")
-    console.print("  [green]kekkai init --force[/green]")
+    print_dashboard()
     return 0
 
 
@@ -278,9 +274,8 @@ def _command_init(config_override: str | None, force: bool) -> int:
     ensure_dir(cfg_path.parent)
 
     cfg_path.write_text(load_config_text(base_dir))
-    console.print(splash())
-    console.print(f"Initialized config at [cyan]{cfg_path}[/cyan]")
-    console.print(print_quick_start())
+    print_dashboard()
+    console.print(f"\n[success]Initialized config at[/success] [cyan]{cfg_path}[/cyan]\n")
     return 0
 
 
