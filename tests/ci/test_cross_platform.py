@@ -282,7 +282,9 @@ class TestDockerDetection:
                 timeout=5,
             )
             if result.returncode == 0:
-                assert "docker-compose" in result.stdout.lower()
+                output = result.stdout.lower()
+                # Accept both v1 "docker-compose" and v2 "docker compose"
+                assert "docker-compose" in output or "docker compose" in output
         except (subprocess.TimeoutExpired, FileNotFoundError):
             # Docker Compose not available
             pytest.skip("Docker Compose not installed")
