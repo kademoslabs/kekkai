@@ -159,5 +159,8 @@ virtualenv==20.36.1
 # Textual TUI framework (required for mypy type checking of triage module)
 textual>=0.50.0
 
+# Runtime dependencies (needed for test collection)
+httpx>=0.24.0
+
 # The following packages are considered to be unsafe in a requirements file:
 # pip
