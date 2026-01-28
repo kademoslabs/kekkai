@@ -60,7 +60,7 @@ BANNER_ASCII = r"""
    ░ ░░ ░    ░    ░ ░░ ░ ░ ░░ ░   ░   ▒
 """
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 
 
 def print_splash() -> None:
