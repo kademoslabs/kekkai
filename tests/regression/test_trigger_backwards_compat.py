@@ -64,7 +64,7 @@ class TestBackwardsCompatibility:
             assert extracted_no_v == version
 
     def test_circleci_release_workflow_unchanged(self) -> None:
-        """Verify CircleCI release workflow still functions."""
+        """Verify CircleCI CI workflow still functions."""
         circleci_config = Path(".circleci/config.yml")
 
         if not circleci_config.exists():
@@ -72,10 +72,9 @@ class TestBackwardsCompatibility:
 
         content = circleci_config.read_text()
 
-        # Verify key release workflow elements
-        assert "publish_release:" in content
-        assert "build_release:" in content
+        # Verify key CI workflow elements (publish moved to GitHub Actions)
         assert "test_full:" in content
+        assert "build_verification:" in content or "build_release:" in content
 
         # Verify release workflow triggers on tags
         assert "tags:" in content
