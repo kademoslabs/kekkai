@@ -13,6 +13,7 @@ from . import dojo, manifest
 from .config import ConfigOverrides, DojoSettings, PolicySettings, load_config
 from .dojo_import import DojoConfig, import_results_to_dojo
 from .output import (
+    VERSION,
     ScanSummaryRow,
     console,
     print_quick_start,
@@ -52,6 +53,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _handle_no_args()
 
     parser = argparse.ArgumentParser(prog="kekkai")
+    parser.add_argument("--version", action="version", version=f"kekkai {VERSION}")
     subparsers = parser.add_subparsers(dest="command")
 
     init_parser = subparsers.add_parser("init", help="initialize config and directories")

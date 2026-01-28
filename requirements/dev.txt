@@ -156,5 +156,8 @@ urllib3==2.6.3
 virtualenv==20.36.1
     # via pre-commit
 
+# Textual TUI framework (required for mypy type checking of triage module)
+textual>=0.50.0
+
 # The following packages are considered to be unsafe in a requirements file:
 # pip

@@ -15,7 +15,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
@@ -107,7 +107,7 @@ class EnterpriseLicense:
         now = datetime.now(UTC)
         if now <= self.expires_at:
             return False
-        grace_end = self.expires_at.replace(day=self.expires_at.day + GRACE_PERIOD_DAYS)
+        grace_end = self.expires_at + timedelta(days=GRACE_PERIOD_DAYS)
         return now <= grace_end
 
     def has_feature(self, feature: EnterpriseFeature) -> bool:
@@ -236,9 +236,7 @@ class LicenseValidator:
 
         if license.is_expired():
             if license.is_in_grace_period():
-                grace_end = license.expires_at.replace(
-                    day=license.expires_at.day + GRACE_PERIOD_DAYS
-                )
+                grace_end = license.expires_at + timedelta(days=GRACE_PERIOD_DAYS)
                 grace_days = (grace_end - now).days
                 logger.warning(
                     "license.grace_period license_id=%s days_remaining=%d",
