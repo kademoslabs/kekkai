@@ -146,6 +146,8 @@ jobs:
             sudo apt-get install -y gh
       - run:
           name: Create GitHub Release
+          environment:
+            GH_TOKEN: $GITHUB_TOKEN
           command: |
             VERSION=$(echo $CIRCLE_TAG | sed 's/^v//')
             gh release create "$CIRCLE_TAG" \
@@ -211,4 +213,4 @@ workflows:
             branches:
               ignore: /.*/
           context:
-            - github-release
+            - distribution-automation
