@@ -15,7 +15,7 @@
 
 *Local-first orchestration for Trivy, Semgrep, and DefectDojo.*
 
-![Hero GIF](https://raw.githubusercontent.com/kademoslabs/assets/main/screenshots/kekkai-hero.gif)
+![Hero GIF](https://raw.githubusercontent.com/kademoslabs/assets/main/screenshots/kekkai-demo.gif)
 
 ---
 
