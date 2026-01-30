@@ -57,7 +57,7 @@ BANNER_ASCII = r"""
 /_/\_\\___/_/\_/_/\_\\_,_/_/
 """
 
-VERSION = "1.0.5"
+VERSION = "1.1.0"
 
 
 def print_dashboard() -> None:

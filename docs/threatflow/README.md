@@ -13,18 +13,44 @@ ThreatFlow analyzes your codebase and generates:
 ## Quick Start
 
 ```bash
-# Analyze current directory with mock mode (for testing)
-kekkai threatflow --model-mode mock
+# Use Ollama (recommended for local inference)
+ollama pull mistral
+kekkai threatflow --repo . --model-mode ollama --model-name mistral
 
 # Analyze a specific repository
 kekkai threatflow --repo /path/to/repo --output-dir ./threat-model
 
-# Use a local LLM model
+# Use a local GGUF model (requires llama-cpp-python)
 kekkai threatflow --repo . --model-path /path/to/model.gguf
 
 # Use OpenAI API (requires API key)
 kekkai threatflow --repo . --model-mode openai --api-key $OPENAI_API_KEY
+
+# Mock mode (for testing)
+kekkai threatflow --model-mode mock
 ```
+
+## Using Ollama (Recommended)
+
+Ollama provides the easiest way to run local LLMs:
+
+1. Install Ollama:
+   ```bash
+   curl -fsSL https://ollama.com/install.sh | sh
+   ```
+
+2. Pull a model:
+   ```bash
+   ollama pull mistral    # 7B, best quality (~4GB RAM)
+   ollama pull tinyllama  # 1.1B, fastest (~2GB RAM)
+   ```
+
+3. Run ThreatFlow:
+   ```bash
+   kekkai threatflow --repo . --model-mode ollama --model-name mistral
+   ```
+
+Environment variable: `OLLAMA_HOST` (default: `http://localhost:11434`)
 
 ## Security Features
 
@@ -33,7 +59,10 @@ kekkai threatflow --repo . --model-mode openai --api-key $OPENAI_API_KEY
 By default, ThreatFlow uses a local LLM model, ensuring your code never leaves your machine:
 
 ```bash
-# Set local model path via environment
+# Using Ollama (recommended)
+kekkai threatflow --repo . --model-mode ollama
+
+# Using GGUF model with llama-cpp-python
 export KEKKAI_THREATFLOW_MODEL_PATH=/path/to/model.gguf
 kekkai threatflow --repo .
 ```
@@ -70,10 +99,10 @@ When injection patterns are found, ThreatFlow:
 ```
 --repo PATH          Repository to analyze (default: current directory)
 --output-dir PATH    Output directory for artifacts
---model-mode MODE    LLM backend: local, openai, anthropic, mock
---model-path PATH    Path to local model file
+--model-mode MODE    LLM backend: local, ollama, openai, anthropic, mock
+--model-path PATH    Path to local model file (for local mode)
 --api-key KEY        API key for remote LLM (prefer env var)
---model-name NAME    Specific model name
+--model-name NAME    Specific model name (e.g., mistral, tinyllama)
 --max-files N        Maximum files to analyze (default: 500)
 --timeout SECONDS    Timeout for model calls (default: 300)
 --no-redact          Disable secret redaction (NOT RECOMMENDED)
@@ -171,9 +200,26 @@ ThreatFlow uses STRIDE methodology:
 
 ## Troubleshooting
 
+### "OLLAMA NOT RUNNING"
+
+Start the Ollama server:
+
+```bash
+ollama serve
+```
+
+### Ollama model not found
+
+Pull the model first:
+
+```bash
+ollama pull mistral
+ollama list  # verify model is available
+```
+
 ### "LOCAL MODEL UNAVAILABLE"
 
-Install llama-cpp-python and provide a model:
+For local GGUF models, install llama-cpp-python and provide a model:
 
 ```bash
 pip install llama-cpp-python

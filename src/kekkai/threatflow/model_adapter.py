@@ -396,6 +396,143 @@ class RemoteModelAdapter(ModelAdapter):
             )
 
 
+class OllamaModelAdapter(ModelAdapter):
+    """Adapter for Ollama local LLM server.
+
+    Ollama provides an easy way to run local models with a simple API.
+    Install: curl -fsSL https://ollama.ai/install.sh | sh
+    Pull model: ollama pull tinyllama
+    """
+
+    def __init__(
+        self,
+        model_name: str = "tinyllama",
+        api_base: str | None = None,
+    ) -> None:
+        self._model_name = model_name
+        self._api_base = api_base or os.environ.get("OLLAMA_HOST") or "http://localhost:11434"
+
+    @property
+    def name(self) -> str:
+        return f"ollama:{self._model_name}"
+
+    @property
+    def is_local(self) -> bool:
+        return True  # Ollama runs locally
+
+    def generate(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        config: ModelConfig | None = None,
+    ) -> ModelResponse:
+        """Generate using Ollama API."""
+        import urllib.error
+        import urllib.request
+
+        config = config or ModelConfig()
+        start_time = time.time()
+
+        url = f"{self._api_base.rstrip('/')}/api/chat"
+        model = config.model_name or self._model_name
+
+        data = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "stream": False,
+            "options": {
+                "temperature": config.temperature,
+                "num_predict": config.max_tokens,
+            },
+        }
+
+        headers = {"Content-Type": "application/json"}
+
+        req = urllib.request.Request(  # noqa: S310  # nosec B310
+            url,
+            data=json.dumps(data).encode("utf-8"),
+            headers=headers,
+            method="POST",
+        )
+
+        try:
+            with urllib.request.urlopen(  # noqa: S310  # nosec B310
+                req, timeout=config.timeout_seconds
+            ) as resp:
+                response_data: dict[str, Any] = json.loads(resp.read().decode("utf-8"))
+
+            content = response_data.get("message", {}).get("content", "")
+            latency_ms = int((time.time() - start_time) * 1000)
+
+            # Ollama provides token counts in some responses
+            prompt_tokens = response_data.get("prompt_eval_count", 0)
+            completion_tokens = response_data.get("eval_count", 0)
+
+            return ModelResponse(
+                content=content,
+                model_name=response_data.get("model", model),
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=prompt_tokens + completion_tokens,
+                latency_ms=latency_ms,
+                raw_response=response_data,
+            )
+        except urllib.error.URLError as e:
+            error_msg = str(e)
+            if "Connection refused" in error_msg:
+                logger.error("Ollama not running. Start with: ollama serve")
+                return ModelResponse(
+                    content="[OLLAMA NOT RUNNING - Start with: ollama serve]",
+                    model_name=model,
+                    latency_ms=int((time.time() - start_time) * 1000),
+                )
+            logger.error("Ollama API error: %s", e)
+            return ModelResponse(
+                content="",
+                model_name=model,
+                latency_ms=int((time.time() - start_time) * 1000),
+            )
+        except Exception as e:
+            logger.error("Ollama request failed: %s", e)
+            return ModelResponse(
+                content="",
+                model_name=model,
+                latency_ms=int((time.time() - start_time) * 1000),
+            )
+
+    def health_check(self) -> bool:
+        """Check if Ollama is running and model is available."""
+        import urllib.request
+
+        try:
+            url = f"{self._api_base.rstrip('/')}/api/tags"
+            req = urllib.request.Request(url, method="GET")  # noqa: S310  # nosec B310
+            with urllib.request.urlopen(req, timeout=5) as resp:  # noqa: S310  # nosec B310
+                data: dict[str, list[dict[str, str]]] = json.loads(resp.read().decode())
+                models = [m.get("name", "") for m in data.get("models", [])]
+                # Check if our model is available (with or without :latest tag)
+                model_base = self._model_name.split(":")[0]
+                return any(model_base in m for m in models)
+        except Exception:
+            return False
+
+    def list_models(self) -> list[str]:
+        """List available models in Ollama."""
+        import urllib.request
+
+        try:
+            url = f"{self._api_base.rstrip('/')}/api/tags"
+            req = urllib.request.Request(url, method="GET")  # noqa: S310  # nosec B310
+            with urllib.request.urlopen(req, timeout=5) as resp:  # noqa: S310  # nosec B310
+                data: dict[str, list[dict[str, str]]] = json.loads(resp.read().decode())
+                return [m.get("name", "") for m in data.get("models", [])]
+        except Exception:
+            return []
+
+
 class MockModelAdapter(ModelAdapter):
     """Mock adapter for testing."""
 
@@ -461,7 +598,7 @@ def create_adapter(
     """Create a model adapter based on mode.
 
     Args:
-        mode: "local", "openai", "anthropic", or "mock"
+        mode: "local", "ollama", "openai", "anthropic", or "mock"
         config: Configuration for the adapter
 
     Returns:
@@ -473,6 +610,11 @@ def create_adapter(
         return MockModelAdapter()
     elif mode == "local":
         return LocalModelAdapter(model_path=config.model_path)
+    elif mode == "ollama":
+        return OllamaModelAdapter(
+            model_name=config.model_name or "tinyllama",
+            api_base=config.api_base,
+        )
     elif mode == "openai":
         return RemoteModelAdapter(
             api_key=config.api_key,

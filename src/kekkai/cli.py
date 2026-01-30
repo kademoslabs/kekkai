@@ -179,8 +179,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     threatflow_parser.add_argument(
         "--model-mode",
         type=str,
-        choices=["local", "openai", "anthropic", "mock"],
-        help="LLM backend: local (default), openai, anthropic, or mock for testing",
+        choices=["local", "ollama", "openai", "anthropic", "mock"],
+        help="LLM backend: local, ollama (recommended), openai, anthropic, or mock",
     )
     threatflow_parser.add_argument(
         "--model-path", type=str, help="Path to local model file (for local mode)"
@@ -248,7 +248,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     fix_parser.add_argument(
         "--model-mode",
         type=str,
-        choices=["local", "openai", "anthropic", "mock"],
+        choices=["local", "ollama", "openai", "anthropic", "mock"],
         default="local",
         help="LLM backend: local (default), openai, anthropic, or mock",
     )
@@ -941,6 +941,16 @@ def _command_dojo(parsed: argparse.Namespace) -> int:
         console.print("\n[bold]Login credentials:[/bold]")
         console.print(f"  Username: {env.get('DD_ADMIN_USER', 'admin')}")
         console.print(f"  Password: {env.get('DD_ADMIN_PASSWORD', '(see .env)')}")
+
+        # Show API key if generated (only when --wait was used)
+        api_key = env.get("DD_API_KEY")
+        if api_key:
+            console.print(f"\n[bold]API Key (for uploads):[/bold] {api_key}")
+        else:
+            console.print(
+                "\n[muted]Note: Run with --wait to auto-generate API key for uploads[/muted]"
+            )
+
         console.print(f"\nCredentials saved to: {compose_root / '.env'}")
         return 0
 

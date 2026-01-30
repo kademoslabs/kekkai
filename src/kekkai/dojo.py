@@ -328,6 +328,18 @@ def compose_up(
 
     if wait:
         wait_for_ui(actual_port, timeout=300)
+        # Generate API key for kekkai upload command
+        try:
+            api_key = generate_api_key(
+                actual_port,
+                env.get("DD_ADMIN_USER", "admin"),
+                env.get("DD_ADMIN_PASSWORD", ""),
+            )
+            env["DD_API_KEY"] = api_key
+            write_env_file(env_file, env)
+        except RuntimeError:
+            # Non-fatal - user can generate API key manually via UI
+            pass
 
     if open_browser:
         open_ui(actual_port)
@@ -425,6 +437,39 @@ def open_ui(port: int) -> None:
     print(f"Opening {url}")
     with contextlib.suppress(Exception):
         webbrowser.open(url)
+
+
+def generate_api_key(port: int, username: str, password: str, timeout: int = 30) -> str:
+    """Generate DefectDojo API key using admin credentials.
+
+    Uses the /api/v2/api-token-auth/ endpoint to get a token.
+
+    Args:
+        port: DefectDojo port
+        username: Admin username
+        password: Admin password
+        timeout: Request timeout in seconds
+
+    Returns:
+        API token string
+
+    Raises:
+        RuntimeError: If token generation fails
+    """
+    url = f"http://localhost:{port}/api/v2/api-token-auth/"
+    data = json.dumps({"username": username, "password": password}).encode()
+    headers = {"Content-Type": "application/json"}
+
+    req = Request(url, data=data, headers=headers, method="POST")  # noqa: S310  # nosec B310
+    try:
+        with urlopen(req, timeout=timeout) as resp:  # noqa: S310  # nosec B310
+            result: dict[str, str] = json.loads(resp.read().decode())
+            token = result.get("token", "")
+            if not token:
+                raise RuntimeError("Empty token returned from DefectDojo")
+            return token
+    except (URLError, HTTPError, OSError) as exc:
+        raise RuntimeError(f"Failed to generate API key: {exc}") from exc
 
 
 def _random_string(length: int) -> str:

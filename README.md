@@ -94,7 +94,11 @@ kekkai upload
 Generate STRIDE-aligned threat models and Mermaid.js Data Flow Diagrams from your codebase.
 
 ```bash
-# Local LLM (privacy-preserving, no data leaves your machine)
+# Ollama (recommended - easy setup, privacy-preserving)
+ollama pull mistral
+kekkai threatflow --repo . --model-mode ollama --model-name mistral
+
+# Local GGUF model (requires llama-cpp-python)
 kekkai threatflow --repo . --model-mode local --model-path ./mistral-7b.gguf
 
 # Remote API (faster, requires API key)
