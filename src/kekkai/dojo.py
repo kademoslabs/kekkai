@@ -413,9 +413,10 @@ def wait_for_ui(port: int, timeout: int = 300) -> None:
                 if resp.status in {200, 302, 401}:
                     return
                 last_error = f"HTTP {resp.status}"
-        except (URLError, HTTPError) as exc:
+        except (URLError, HTTPError, OSError, ConnectionError) as exc:
+            # OSError/ConnectionError covers ConnectionResetError, BrokenPipeError, etc.
             last_error = str(exc)
-            time.sleep(2)
+        time.sleep(2)
     raise RuntimeError(f"DefectDojo UI did not become ready in time ({last_error})")
 
 
