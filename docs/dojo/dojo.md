@@ -118,16 +118,16 @@ kekkai dojo down
 kekkai dojo down --compose-dir /tmp/my-dojo
 ```
 
-**Data Preservation:**
+**Volume Cleanup:**
 
-Docker volumes (`defectdojo_postgres`, `defectdojo_media`, `defectdojo_redis`) are **not** removed by `dojo down`. Your data persists across restarts.
+Docker volumes (`defectdojo_postgres`, `defectdojo_media`, `defectdojo_redis`) **are removed** by `dojo down` to ensure a clean state and prevent orphaned resources. This is intentional to avoid volume conflicts on subsequent restarts.
 
-To completely remove all data:
+If you need to preserve data between sessions, consider backing up volumes before running `dojo down`:
 
 ```bash
-docker volume rm kekkai-dojo_defectdojo_postgres \
-                 kekkai-dojo_defectdojo_media \
-                 kekkai-dojo_defectdojo_redis
+# Backup postgres data before shutdown
+docker run --rm -v kekkai-dojo_defectdojo_postgres:/data -v $(pwd):/backup \
+  alpine tar czf /backup/dojo-postgres-backup.tar.gz -C /data .
 ```
 
 ---

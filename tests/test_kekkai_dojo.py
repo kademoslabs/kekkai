@@ -166,3 +166,56 @@ def test_open_ui_calls_browser(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("kekkai.dojo.webbrowser.open", fake_open)
     open_ui(8080)
     assert called["opened"] is True
+
+
+def test_build_compose_yaml_no_version() -> None:
+    """Verify docker-compose output has no version key (avoids deprecation warning)."""
+    output = build_compose_yaml()
+    assert "version:" not in output
+    assert output.startswith("services:\n")
+
+
+def test_compose_down_includes_volumes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Verify compose_down passes --volumes to remove orphaned volumes."""
+    captured_args: list[list[str]] = []
+
+    class FakeProc:
+        returncode = 0
+        stderr = ""
+        stdout = ""
+
+    def fake_run(args: list[str], **_kwargs: object) -> FakeProc:
+        captured_args.append(list(args))
+        return FakeProc()
+
+    monkeypatch.setattr("kekkai.dojo.compose_command", lambda: ["docker", "compose"])
+    monkeypatch.setattr("kekkai.dojo.subprocess.run", fake_run)
+
+    compose_root = tmp_path / "dojo"
+    compose_root.mkdir(parents=True)
+    (compose_root / "docker-compose.yml").write_text("services: {}")
+
+    compose_down(compose_root=compose_root, project_name="test-proj")
+
+    assert len(captured_args) == 1
+    cmd = captured_args[0]
+    assert "--volumes" in cmd
+    assert "--remove-orphans" in cmd
+    assert "down" in cmd
+
+
+def test_ensure_env_generates_unique_passwords(tmp_path: Path) -> None:
+    """Verify each call to ensure_env generates unique passwords."""
+    env1_path = tmp_path / "env1" / ".env"
+    env2_path = tmp_path / "env2" / ".env"
+    env1_path.parent.mkdir()
+    env2_path.parent.mkdir()
+
+    env1 = ensure_env(env1_path, port=8080, tls_port=8443)
+    env2 = ensure_env(env2_path, port=8081, tls_port=8444)
+
+    assert env1["DD_ADMIN_PASSWORD"] != env2["DD_ADMIN_PASSWORD"]
+    assert env1["DD_DATABASE_PASSWORD"] != env2["DD_DATABASE_PASSWORD"]
+    assert env1["DD_SECRET_KEY"] != env2["DD_SECRET_KEY"]
+    assert len(env1["DD_ADMIN_PASSWORD"]) >= 20
+    assert len(env1["DD_DATABASE_PASSWORD"]) >= 24

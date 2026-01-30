@@ -333,34 +333,36 @@ docker exec -it kekkai-dojo-uwsgi-1 \
 
 Projects and findings disappear after running `kekkai dojo down` and `kekkai dojo up`.
 
-**Cause:** Docker volumes were removed.
+**Cause:** This is expected behavior. `kekkai dojo down` removes volumes by default to ensure clean state and prevent orphaned resources.
 
 **Solution:**
 
-Docker volumes persist by default. If data is missing:
+If you need to preserve data between sessions:
 
-1. **Check if volumes exist:**
+1. **Backup before shutdown:**
 
    ```bash
-   docker volume ls | grep kekkai-dojo
+   # Backup postgres data
+   docker run --rm -v kekkai-dojo_defectdojo_postgres:/data -v $(pwd):/backup \
+     alpine tar czf /backup/dojo-postgres-backup.tar.gz -C /data .
    ```
 
-   Should show:
-   - `kekkai-dojo_defectdojo_postgres`
-   - `kekkai-dojo_defectdojo_media`
-   - `kekkai-dojo_defectdojo_redis`
-
-2. **If volumes are missing:**
-
-   Data cannot be recovered. Start fresh:
+2. **Restore after startup:**
 
    ```bash
    kekkai dojo up --wait
+   # Stop postgres temporarily
+   docker stop kekkai-dojo-postgres-1
+   # Restore data
+   docker run --rm -v kekkai-dojo_defectdojo_postgres:/data -v $(pwd):/backup \
+     alpine sh -c "cd /data && tar xzf /backup/dojo-postgres-backup.tar.gz"
+   # Restart postgres
+   docker start kekkai-dojo-postgres-1
    ```
 
-3. **To prevent future data loss:**
+3. **For persistent development:**
 
-   Never run `docker volume rm` on active volumes. Only use `kekkai dojo down` to stop services.
+   Consider using DefectDojo's native docker-compose setup if you need data persistence across sessions.
 
 ---
 
