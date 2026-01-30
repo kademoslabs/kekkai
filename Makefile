@@ -224,6 +224,10 @@ fix-test: ## Test AI-powered fix engine module
 	pytest -m "integration" tests/integration/test_fix_workflow.py -v
 	pytest -m "regression" tests/regression/test_fix_backwards_compat.py -v
 
+report-test: ## Test compliance mapping and report generation modules
+	pytest tests/test_compliance.py tests/test_report.py -v --cov=src/kekkai/compliance --cov=src/kekkai/report --cov-report=term-missing --cov-fail-under=0
+	pytest -m "integration" tests/integration/test_report_workflow.py -v
+
 windows-unit: ## Windows unit tests
 	pytest tests/windows -v --cov=src/kekkai_core/windows --cov-report=term-missing
 

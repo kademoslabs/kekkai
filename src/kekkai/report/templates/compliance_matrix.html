@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compliance Matrix - Kekkai Security Report</title>
+    <style>
+        :root {
+            --color-compliant: #28a745;
+            --color-at-risk: #ffc107;
+            --color-non-compliant: #dc3545;
+            --color-critical: #dc3545;
+            --color-high: #fd7e14;
+            --color-medium: #ffc107;
+            --color-low: #17a2b8;
+            --color-info: #6c757d;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f8f9fa;
+            padding: 2rem;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .header {
+            background: linear-gradient(135deg, #1a472a, #28a745);
+            color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+        .header h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+        .header .meta { opacity: 0.9; font-size: 0.9rem; }
+        .disclaimer {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 4px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            font-size: 0.875rem;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .card h2 {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #e9ecef;
+        }
+        .framework-nav {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+        .framework-nav a {
+            padding: 0.75rem 1.5rem;
+            background: white;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #333;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .framework-nav a:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .stat-box {
+            text-align: center;
+            padding: 1rem;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+        .stat-box .number { font-size: 1.75rem; font-weight: bold; }
+        .stat-box .label { font-size: 0.8rem; color: #6c757d; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+        th { background: #f8f9fa; font-weight: 600; position: sticky; top: 0; }
+        tr:hover { background: #f8f9fa; }
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status-compliant { background: #d4edda; color: #155724; }
+        .status-at_risk { background: #fff3cd; color: #856404; }
+        .status-non_compliant { background: #f8d7da; color: #721c24; }
+        .severity-counts {
+            display: flex;
+            gap: 0.25rem;
+        }
+        .severity-dot {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.65rem;
+            font-weight: bold;
+            color: white;
+        }
+        .dot-critical { background: var(--color-critical); }
+        .dot-high { background: var(--color-high); }
+        .dot-medium { background: var(--color-medium); color: #333; }
+        .dot-low { background: var(--color-low); }
+        .dot-info { background: var(--color-info); }
+        .legend {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            font-size: 0.875rem;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: #6c757d;
+            font-size: 0.875rem;
+        }
+        @media print {
+            body { background: white; padding: 0; }
+            .card { box-shadow: none; border: 1px solid #e9ecef; page-break-inside: avoid; }
+            .header { color: black; background: #f8f9fa; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Compliance Matrix Report</h1>
+            <div class="meta">
+                {% if config.organization %}{{ config.organization }} | {% endif %}
+                {% if config.project_name %}{{ config.project_name }} | {% endif %}
+                Generated: {{ metadata.generated_at }} |
+                Report ID: {{ metadata.content_hash }}
+            </div>
+        </div>
+
+        <div class="disclaimer">
+            <strong>Disclaimer:</strong> This compliance matrix provides advisory mappings between security findings
+            and compliance framework controls. It does not constitute a compliance certification or audit opinion.
+            Organizations must conduct formal assessments with qualified auditors for official compliance determinations.
+        </div>
+
+        <div class="framework-nav">
+            {% for framework in framework_matrices.keys() %}
+            <a href="#{{ framework|lower|replace('-', '') }}">{{ framework }}</a>
+            {% endfor %}
+        </div>
+
+        <div class="card">
+            <h2>Summary</h2>
+            <div class="summary-stats">
+                <div class="stat-box">
+                    <div class="number">{{ executive_summary.total_findings }}</div>
+                    <div class="label">Total Findings</div>
+                </div>
+                {% for framework, data in framework_matrices.items() %}
+                <div class="stat-box">
+                    <div class="number">{{ data.affected_controls }}/{{ data.total_controls }}</div>
+                    <div class="label">{{ framework }} Controls Affected</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="legend">
+            <div class="legend-item">
+                <span class="legend-dot" style="background: var(--color-compliant);"></span>
+                Compliant (No Findings)
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot" style="background: var(--color-at-risk);"></span>
+                At Risk (Low/Info Findings)
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot" style="background: var(--color-non-compliant);"></span>
+                Non-Compliant (Medium+ Findings)
+            </div>
+        </div>
+
+        {% for framework, data in framework_matrices.items() %}
+        <div class="card" id="{{ framework|lower|replace('-', '') }}">
+            <h2>{{ framework }} - {{ data.affected_controls }} of {{ data.total_controls }} Controls Affected</h2>
+
+            {% if data.rows %}
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 120px;">Control ID</th>
+                        <th>Title</th>
+                        <th style="width: 100px;">Status</th>
+                        <th style="width: 80px;">Findings</th>
+                        <th style="width: 150px;">Severities</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in data.rows %}
+                    <tr>
+                        <td><strong>{{ row.control_id }}</strong></td>
+                        <td>
+                            {{ row.title }}
+                            <br><small style="color: #6c757d;">{{ row.description[:100] }}{% if row.description|length > 100 %}...{% endif %}</small>
+                        </td>
+                        <td>
+                            <span class="status-badge status-{{ row.status }}">
+                                {% if row.status == 'compliant' %}✓ Compliant
+                                {% elif row.status == 'at_risk' %}⚠ At Risk
+                                {% else %}✗ Non-Compliant{% endif %}
+                            </span>
+                        </td>
+                        <td style="text-align: center;">{{ row.finding_count }}</td>
+                        <td>
+                            {% if row.finding_count > 0 %}
+                            <div class="severity-counts">
+                                {% if row.severity_counts.critical > 0 %}
+                                <span class="severity-dot dot-critical">{{ row.severity_counts.critical }}</span>
+                                {% endif %}
+                                {% if row.severity_counts.high > 0 %}
+                                <span class="severity-dot dot-high">{{ row.severity_counts.high }}</span>
+                                {% endif %}
+                                {% if row.severity_counts.medium > 0 %}
+                                <span class="severity_dot dot-medium">{{ row.severity_counts.medium }}</span>
+                                {% endif %}
+                                {% if row.severity_counts.low > 0 %}
+                                <span class="severity-dot dot-low">{{ row.severity_counts.low }}</span>
+                                {% endif %}
+                                {% if row.severity_counts.info > 0 %}
+                                <span class="severity-dot dot-info">{{ row.severity_counts.info }}</span>
+                                {% endif %}
+                            </div>
+                            {% else %}
+                            <span style="color: #6c757d;">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="color: #6c757d;">No controls mapped for this framework.</p>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        <div class="footer">
+            <p>Generated by Kekkai v{{ metadata.generator_version }}</p>
+            <p>Content Hash: {{ metadata.content_hash }}</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ config.title }} - Kekkai Security Report</title>
+    <style>
+        :root {
+            --color-critical: #dc3545;
+            --color-high: #fd7e14;
+            --color-medium: #ffc107;
+            --color-low: #17a2b8;
+            --color-info: #6c757d;
+            --color-success: #28a745;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f8f9fa;
+            padding: 2rem;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+        .header h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+        .header .meta { opacity: 0.9; font-size: 0.9rem; }
+        .disclaimer {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 4px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            font-size: 0.875rem;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .card h2 {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #e9ecef;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        .stat-box {
+            text-align: center;
+            padding: 1rem;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+        .stat-box .number { font-size: 2rem; font-weight: bold; }
+        .stat-box .label { font-size: 0.875rem; color: #6c757d; }
+        .stat-critical { border-left: 4px solid var(--color-critical); }
+        .stat-high { border-left: 4px solid var(--color-high); }
+        .stat-medium { border-left: 4px solid var(--color-medium); }
+        .stat-low { border-left: 4px solid var(--color-low); }
+        .stat-info { border-left: 4px solid var(--color-info); }
+        .risk-meter {
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+        .risk-fill {
+            height: 100%;
+            transition: width 0.3s;
+        }
+        .risk-critical { background: var(--color-critical); }
+        .risk-high { background: var(--color-high); }
+        .risk-medium { background: var(--color-medium); }
+        .risk-low { background: var(--color-low); }
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: white;
+            text-transform: uppercase;
+        }
+        .severity-critical { background: var(--color-critical); }
+        .severity-high { background: var(--color-high); }
+        .severity-medium { background: var(--color-medium); color: #333; }
+        .severity-low { background: var(--color-low); }
+        .severity-info { background: var(--color-info); }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+        th { background: #f8f9fa; font-weight: 600; }
+        tr:hover { background: #f8f9fa; }
+        .timeline-item {
+            display: flex;
+            gap: 1rem;
+            padding: 1rem 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .timeline-item:last-child { border-bottom: none; }
+        .timeline-count {
+            min-width: 60px;
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        .timeline-details { flex: 1; }
+        .framework-section { margin-top: 1.5rem; }
+        .framework-section h3 {
+            font-size: 1.1rem;
+            margin-bottom: 0.75rem;
+            color: #495057;
+        }
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: #6c757d;
+            font-size: 0.875rem;
+        }
+        .finding-card {
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .finding-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.5rem;
+        }
+        .finding-title { font-weight: 600; }
+        .finding-meta { font-size: 0.875rem; color: #6c757d; }
+        @media print {
+            body { background: white; padding: 0; }
+            .card { box-shadow: none; border: 1px solid #e9ecef; }
+            .header { color: black; background: #f8f9fa; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>{{ config.title }}</h1>
+            <div class="meta">
+                {% if config.organization %}{{ config.organization }} | {% endif %}
+                {% if config.project_name %}{{ config.project_name }} | {% endif %}
+                Generated: {{ metadata.generated_at }} |
+                Report ID: {{ metadata.content_hash }}
+            </div>
+        </div>
+
+        <div class="disclaimer">
+            <strong>Disclaimer:</strong> This report provides advisory compliance mappings based on security findings.
+            It does not constitute a compliance certification or audit. Organizations should conduct proper assessments
+            with qualified auditors for official compliance determinations.
+        </div>
+
+        {% if config.include_executive_summary %}
+        <div class="card">
+            <h2>Executive Summary</h2>
+            <div class="summary-grid">
+                <div class="stat-box">
+                    <div class="number">{{ executive_summary.total_findings }}</div>
+                    <div class="label">Total Findings</div>
+                </div>
+                <div class="stat-box stat-critical">
+                    <div class="number">{{ severity_counts.critical }}</div>
+                    <div class="label">Critical</div>
+                </div>
+                <div class="stat-box stat-high">
+                    <div class="number">{{ severity_counts.high }}</div>
+                    <div class="label">High</div>
+                </div>
+                <div class="stat-box stat-medium">
+                    <div class="number">{{ severity_counts.medium }}</div>
+                    <div class="label">Medium</div>
+                </div>
+                <div class="stat-box stat-low">
+                    <div class="number">{{ severity_counts.low }}</div>
+                    <div class="label">Low</div>
+                </div>
+            </div>
+
+            <h3 style="margin-top: 1.5rem;">Risk Level: {{ executive_summary.risk_level }}</h3>
+            <div class="risk-meter">
+                <div class="risk-fill risk-{{ executive_summary.risk_level|lower }}"
+                     style="width: {{ executive_summary.risk_percentage }}%;"></div>
+            </div>
+
+            {% if executive_summary.top_issues %}
+            <h3 style="margin-top: 1.5rem;">Top Issues</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Issue</th>
+                        <th>Severity</th>
+                        <th>File</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for issue in executive_summary.top_issues %}
+                    <tr>
+                        <td>{{ issue.title }}</td>
+                        <td><span class="badge severity-{{ issue.severity }}">{{ issue.severity }}</span></td>
+                        <td>{{ issue.file or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if config.include_remediation_timeline %}
+        <div class="card">
+            <h2>Remediation Timeline</h2>
+            {% for key, item in remediation_timeline.items() %}
+            {% if item.count > 0 %}
+            <div class="timeline-item">
+                <div class="timeline-count" style="color: var(--color-{{ item.severity }});">
+                    {{ item.count }}
+                </div>
+                <div class="timeline-details">
+                    <strong>{{ key|title }}</strong>
+                    <div class="timeline-meta">{{ item.description }}</div>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="card">
+            <h2>Compliance Framework Impact</h2>
+            {% for framework, count in compliance.framework_summary.items() %}
+            <div class="framework-section">
+                <h3>{{ framework }}: {{ count }} controls affected</h3>
+                {% set controls = compliance.get_controls_by_framework(framework) %}
+                {% if controls %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Control ID</th>
+                            <th>Title</th>
+                            <th>Findings</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for control in controls[:10] %}
+                        {% set affected = compliance.get_findings_for_control(framework, control.control_id) %}
+                        <tr>
+                            <td>{{ control.control_id }}</td>
+                            <td>{{ control.title }}</td>
+                            <td>{{ affected|length }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% if controls|length > 10 %}
+                        <tr>
+                            <td colspan="3"><em>... and {{ controls|length - 10 }} more controls</em></td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="card">
+            <h2>Findings Detail ({{ findings|length }})</h2>
+            {% for finding in findings[:50] %}
+            <div class="finding-card">
+                <div class="finding-header">
+                    <span class="finding-title">{{ finding.title }}</span>
+                    <span class="badge severity-{{ finding.severity.value }}">{{ finding.severity.value }}</span>
+                </div>
+                <div class="finding-meta">
+                    <strong>Scanner:</strong> {{ finding.scanner }} |
+                    {% if finding.file_path %}<strong>File:</strong> {{ finding.file_path }}:{{ finding.line or '?' }} |{% endif %}
+                    {% if finding.rule_id %}<strong>Rule:</strong> {{ finding.rule_id }} |{% endif %}
+                    {% if finding.cwe %}<strong>CWE:</strong> {{ finding.cwe }} |{% endif %}
+                    {% if finding.cve %}<strong>CVE:</strong> {{ finding.cve }}{% endif %}
+                </div>
+                <p style="margin-top: 0.5rem; font-size: 0.9rem;">{{ finding.description[:300] }}{% if finding.description|length > 300 %}...{% endif %}</p>
+            </div>
+            {% endfor %}
+            {% if findings|length > 50 %}
+            <p><em>Showing 50 of {{ findings|length }} findings. See JSON report for complete list.</em></p>
+            {% endif %}
+        </div>
+
+        <div class="footer">
+            <p>Generated by Kekkai v{{ metadata.generator_version }}</p>
+            <p>Content Hash: {{ metadata.content_hash }}</p>
+        </div>
+    </div>
+</body>
+</html>

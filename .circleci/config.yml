@@ -48,6 +48,11 @@ jobs:
             . .venv/bin/activate
             make fix-test
       - run:
+          name: Report and compliance tests
+          command: |
+            . .venv/bin/activate
+            make report-test
+      - run:
           name: pipx install test
           command: |
             . .venv/bin/activate

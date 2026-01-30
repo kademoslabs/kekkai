@@ -7,7 +7,7 @@ import sys
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from . import dojo, manifest
 from .config import ConfigOverrides, DojoSettings, PolicySettings, load_config
@@ -280,6 +280,67 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Disable backup creation when applying fixes",
     )
 
+    # Report subcommand - Compliance mapping and reporting
+    report_parser = subparsers.add_parser(
+        "report", help="generate compliance reports from scan findings"
+    )
+    report_parser.add_argument(
+        "--input",
+        type=str,
+        required=True,
+        help="Path to scan results JSON file",
+    )
+    report_parser.add_argument(
+        "--output",
+        type=str,
+        help="Output directory for reports (default: current directory)",
+    )
+    report_parser.add_argument(
+        "--format",
+        type=str,
+        default="html",
+        help="Report format: html, pdf, compliance, json, all (default: html)",
+    )
+    report_parser.add_argument(
+        "--frameworks",
+        type=str,
+        help="Comma-separated frameworks: PCI-DSS,SOC2,OWASP,HIPAA (default: all)",
+    )
+    report_parser.add_argument(
+        "--min-severity",
+        type=str,
+        default="info",
+        help="Minimum severity to include: critical,high,medium,low,info (default: info)",
+    )
+    report_parser.add_argument(
+        "--title",
+        type=str,
+        default="Security Scan Report",
+        help="Report title",
+    )
+    report_parser.add_argument(
+        "--organization",
+        type=str,
+        default="",
+        help="Organization name for report header",
+    )
+    report_parser.add_argument(
+        "--project",
+        type=str,
+        default="",
+        help="Project name for report header",
+    )
+    report_parser.add_argument(
+        "--no-executive-summary",
+        action="store_true",
+        help="Exclude executive summary section",
+    )
+    report_parser.add_argument(
+        "--no-timeline",
+        action="store_true",
+        help="Exclude remediation timeline section",
+    )
+
     parsed = parser.parse_args(args)
     if parsed.command == "init":
         return _command_init(parsed.config, parsed.force)
@@ -314,6 +375,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _command_triage(parsed)
     if parsed.command == "fix":
         return _command_fix(parsed)
+    if parsed.command == "report":
+        return _command_report(parsed)
 
     parser.print_help()
     return 1
@@ -1116,6 +1179,207 @@ def _command_fix(parsed: argparse.Namespace) -> int:
         console.print(f"\nAudit log: {result.audit_log_path}")
 
     return 0
+
+
+def _command_report(parsed: argparse.Namespace) -> int:
+    """Generate compliance reports from scan findings."""
+    import json as _json
+
+    from .report import ReportConfig, ReportFormat, generate_report
+
+    # Resolve input path
+    input_path_str = cast(str, parsed.input)
+    input_path = Path(input_path_str).expanduser().resolve()
+
+    if not input_path.exists():
+        console.print(f"[danger]Error:[/danger] Input file not found: {input_path}")
+        return 1
+
+    # Resolve output directory
+    output_str = cast(str | None, getattr(parsed, "output", None))
+    output_dir = Path(output_str).expanduser().resolve() if output_str else Path.cwd()
+
+    # Parse format
+    format_str = getattr(parsed, "format", "html").lower()
+    formats: list[ReportFormat] = []
+    if format_str == "all":
+        formats = [ReportFormat.HTML, ReportFormat.PDF, ReportFormat.COMPLIANCE, ReportFormat.JSON]
+    else:
+        for fmt in format_str.split(","):
+            fmt = fmt.strip()
+            try:
+                formats.append(ReportFormat(fmt))
+            except ValueError:
+                console.print(f"[danger]Error:[/danger] Unknown format: {fmt}")
+                console.print("  Available: html, pdf, compliance, json, all")
+                return 1
+
+    # Parse frameworks
+    frameworks_str = cast(str | None, getattr(parsed, "frameworks", None))
+    if frameworks_str:
+        frameworks = [f.strip() for f in frameworks_str.split(",")]
+    else:
+        frameworks = ["PCI-DSS", "SOC2", "OWASP", "HIPAA"]
+
+    # Build config
+    config = ReportConfig(
+        formats=formats,
+        frameworks=frameworks,
+        min_severity=getattr(parsed, "min_severity", "info"),
+        include_executive_summary=not getattr(parsed, "no_executive_summary", False),
+        include_remediation_timeline=not getattr(parsed, "no_timeline", False),
+        title=getattr(parsed, "title", "Security Scan Report"),
+        organization=getattr(parsed, "organization", ""),
+        project_name=getattr(parsed, "project", ""),
+    )
+
+    # Display banner
+    console.print("\n[bold cyan]Kekkai Report[/bold cyan] - Compliance Mapping & Reporting")
+    console.print("=" * 55)
+    console.print(f"Input: {input_path}")
+    console.print(f"Output: {output_dir}")
+    console.print(f"Formats: {', '.join(f.value for f in formats)}")
+    console.print(f"Frameworks: {', '.join(frameworks)}")
+
+    # Load findings from input file
+    console.print("\nLoading scan results...")
+    try:
+        with input_path.open() as f:
+            data = _json.load(f)
+    except _json.JSONDecodeError as e:
+        console.print(f"[danger]Error:[/danger] Invalid JSON: {e}")
+        return 1
+
+    # Parse findings based on input format
+    findings = _parse_findings_from_json(data)
+
+    if not findings:
+        console.print("[warning]Warning:[/warning] No findings found in input file")
+
+    console.print(f"Found {len(findings)} findings")
+
+    # Generate reports
+    console.print("\nGenerating reports...")
+    result = generate_report(findings, output_dir, config)
+
+    if not result.success:
+        console.print("[danger]Report generation failed:[/danger]")
+        for err in result.errors:
+            console.print(f"  - {sanitize_error(err)}")
+        return 1
+
+    # Print results
+    console.print(f"\n[success]Reports generated in {result.generation_time_ms}ms[/success]")
+    console.print("\nOutput files:")
+    for path in result.output_files:
+        console.print(f"  - {path}")
+
+    if result.warnings:
+        console.print("\n[warning]Warnings:[/warning]")
+        for w in result.warnings[:5]:
+            console.print(f"  - {w}")
+
+    return 0
+
+
+def _parse_findings_from_json(data: dict[str, Any] | list[Any]) -> list[Finding]:
+    """Parse findings from various JSON formats (Semgrep, Trivy, unified)."""
+    from .scanners.base import Severity
+
+    findings: list[Finding] = []
+
+    # Handle Semgrep format
+    if isinstance(data, dict) and "results" in data:
+        for item in data.get("results", []):
+            severity_str = item.get("extra", {}).get("severity", "INFO")
+            if severity_str == "ERROR":
+                severity = Severity.HIGH
+            elif severity_str == "WARNING":
+                severity = Severity.MEDIUM
+            else:
+                severity = Severity.from_string(severity_str)
+
+            findings.append(
+                Finding(
+                    scanner="semgrep",
+                    title=item.get("check_id", "Unknown"),
+                    severity=severity,
+                    description=item.get("extra", {}).get("message", ""),
+                    file_path=item.get("path"),
+                    line=item.get("start", {}).get("line"),
+                    rule_id=item.get("check_id"),
+                    cwe=_extract_cwe_from_metadata(item.get("extra", {}).get("metadata", {})),
+                )
+            )
+
+    # Handle Trivy format
+    elif isinstance(data, dict) and "Results" in data:
+        for result in data.get("Results", []):
+            for vuln in result.get("Vulnerabilities", []):
+                findings.append(
+                    Finding(
+                        scanner="trivy",
+                        title=vuln.get("Title", vuln.get("VulnerabilityID", "Unknown")),
+                        severity=Severity.from_string(vuln.get("Severity", "UNKNOWN")),
+                        description=vuln.get("Description", ""),
+                        cve=vuln.get("VulnerabilityID"),
+                        package_name=vuln.get("PkgName"),
+                        package_version=vuln.get("InstalledVersion"),
+                        fixed_version=vuln.get("FixedVersion"),
+                    )
+                )
+
+    # Handle unified Kekkai format (array of findings)
+    elif isinstance(data, list):
+        for item in data:
+            findings.append(
+                Finding(
+                    scanner=item.get("scanner", "unknown"),
+                    title=item.get("title", "Unknown"),
+                    severity=Severity.from_string(item.get("severity", "unknown")),
+                    description=item.get("description", ""),
+                    file_path=item.get("file_path"),
+                    line=item.get("line"),
+                    rule_id=item.get("rule_id"),
+                    cwe=item.get("cwe"),
+                    cve=item.get("cve"),
+                    package_name=item.get("package_name"),
+                    package_version=item.get("package_version"),
+                    fixed_version=item.get("fixed_version"),
+                )
+            )
+
+    # Handle Kekkai report JSON format (with findings array)
+    elif isinstance(data, dict) and "findings" in data:
+        for item in data.get("findings", []):
+            findings.append(
+                Finding(
+                    scanner=item.get("scanner", "unknown"),
+                    title=item.get("title", "Unknown"),
+                    severity=Severity.from_string(item.get("severity", "unknown")),
+                    description=item.get("description", ""),
+                    file_path=item.get("file_path"),
+                    line=item.get("line"),
+                    rule_id=item.get("rule_id"),
+                    cwe=item.get("cwe"),
+                    cve=item.get("cve"),
+                    package_name=item.get("package_name"),
+                    package_version=item.get("package_version"),
+                    fixed_version=item.get("fixed_version"),
+                )
+            )
+
+    return findings
+
+
+def _extract_cwe_from_metadata(metadata: dict[str, Any]) -> str | None:
+    """Extract CWE from Semgrep metadata."""
+    cwe_list = metadata.get("cwe", [])
+    if isinstance(cwe_list, list) and cwe_list:
+        return str(cwe_list[0])
+    if isinstance(cwe_list, str):
+        return cwe_list
+    return None
 
 
 def _resolve_dojo_compose_dir(parsed: argparse.Namespace) -> str | None:

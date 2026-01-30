@@ -46,6 +46,12 @@ Generate STRIDE-aligned threat models from your codebase.
 
 - **[ThreatFlow Guide](threatflow/README.md)** — Setup and usage guide
 
+### Compliance Mapping & Reporting
+
+Map findings to compliance frameworks and generate audit-ready reports.
+
+- **[Compliance Guide](compliance/README.md)** — PCI-DSS, SOC 2, OWASP, HIPAA mapping
+
 ### Regulon (Compliance Checker) — Extracted
 
 > **Note:** Regulon has been extracted to its own repository for independent development and versioning.
@@ -136,6 +142,8 @@ docs/
 │   └── README.md                # Portal guide
 ├── threatflow/                  # ThreatFlow Docs
 │   └── README.md                # ThreatFlow guide
+├── compliance/                  # Compliance Reporting Docs
+│   └── README.md                # Compliance mapping guide
 ├── triage/                      # Triage Docs
 │   ├── README.md                # Triage TUI guide
 │   └── fix-engine.md            # AI fix engine guide
