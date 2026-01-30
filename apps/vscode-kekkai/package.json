@@ -1,8 +1,8 @@
 {
   "name": "vscode-kekkai",
   "displayName": "Kekkai Security Scanner",
-  "description": "Local-first security scanning integrated into VS Code",
-  "version": "0.1.0",
+  "description": "Local-first security scanning integrated into VS Code with real-time diagnostics, hover details, and AI-powered quick fixes",
+  "version": "0.2.0",
   "publisher": "kademoslabs",
   "license": "MIT",
   "repository": {
@@ -21,7 +21,11 @@
     "scanner",
     "sast",
     "sca",
-    "vulnerability"
+    "vulnerability",
+    "semgrep",
+    "trivy",
+    "gitleaks",
+    "quick-fix"
   ],
   "activationEvents": [
     "workspaceContains:**/*"
@@ -31,11 +35,24 @@
     "commands": [
       {
         "command": "kekkai.scan",
-        "title": "Kekkai: Run Security Scan"
+        "title": "Kekkai: Run Security Scan",
+        "icon": "$(shield)"
       },
       {
         "command": "kekkai.clearDiagnostics",
         "title": "Kekkai: Clear Diagnostics"
+      },
+      {
+        "command": "kekkai.applyFix",
+        "title": "Kekkai: Apply Quick Fix"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "kekkai.scan",
+        "key": "ctrl+shift+k",
+        "mac": "cmd+shift+k",
+        "when": "editorTextFocus"
       }
     ],
     "configuration": {
@@ -44,7 +61,9 @@
         "kekkai.scanDebounceMs": {
           "type": "number",
           "default": 30000,
-          "description": "Minimum time between scans in milliseconds"
+          "minimum": 1000,
+          "maximum": 600000,
+          "description": "Minimum time between scans in milliseconds (1s - 10min)"
         },
         "kekkai.autoScanOnSave": {
           "type": "boolean",
@@ -59,7 +78,50 @@
         "kekkai.scanTimeoutMs": {
           "type": "number",
           "default": 300000,
+          "minimum": 10000,
+          "maximum": 1800000,
           "description": "Maximum scan duration in milliseconds (default: 5 minutes)"
+        },
+        "kekkai.enabledScanners": {
+          "type": "object",
+          "default": {
+            "trivy": true,
+            "semgrep": true,
+            "gitleaks": true
+          },
+          "properties": {
+            "trivy": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable Trivy vulnerability scanner"
+            },
+            "semgrep": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable Semgrep SAST scanner"
+            },
+            "gitleaks": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable Gitleaks secret scanner"
+            }
+          },
+          "description": "Configure which scanners to enable"
+        },
+        "kekkai.nativeMode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use native scanner binaries instead of Docker (requires local installation)"
+        },
+        "kekkai.showHoverDetails": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show detailed finding information on hover"
+        },
+        "kekkai.enableQuickFix": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable AI-powered quick fix suggestions for Semgrep findings"
         }
       }
     }

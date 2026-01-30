@@ -17,6 +17,7 @@ export interface Finding {
     end_column?: number;
     cwe_id?: string;
     cve_id?: string;
+    fix_available?: boolean;
 }
 
 export interface ScanResult {
@@ -43,4 +44,31 @@ export interface ExtensionConfig {
     autoScanOnSave: boolean;
     cliPath: string;
     scanTimeoutMs: number;
+}
+
+export interface FixSuggestion {
+    preview: string;
+    diff?: {
+        original: string;
+        fixed: string;
+    };
+    applied?: boolean;
+}
+
+export interface FixResult {
+    success: boolean;
+    suggestions?: FixSuggestion[];
+    error?: string;
+}
+
+export interface ScannerConfig {
+    trivy: boolean;
+    semgrep: boolean;
+    gitleaks: boolean;
+}
+
+export interface StatusBarState {
+    scanning: boolean;
+    lastScanTime?: number;
+    findingsCount?: number;
 }
