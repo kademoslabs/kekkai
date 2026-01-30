@@ -2,15 +2,15 @@
 
 Security controls:
 - Server-side license enforcement
-- Signed license tokens to prevent tampering
+- Asymmetric (ECDSA P-256) signed license tokens to prevent tampering
 - Grace period handling for expiration
+- Private key for signing (admin only), public key for validation (distributed)
 """
 
 from __future__ import annotations
 
 import base64
 import hashlib
-import hmac
 import json
 import logging
 import time
@@ -18,6 +18,10 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import TYPE_CHECKING, Any
+
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec
 
 if TYPE_CHECKING:
     pass
@@ -155,29 +159,80 @@ class LicenseCheckResult:
     grace_days_remaining: int | None = None
 
 
-class LicenseValidator:
-    """Validates enterprise licenses."""
+def generate_keypair() -> tuple[bytes, bytes]:
+    """Generate a new ECDSA P-256 keypair for license signing.
 
-    def __init__(self, signing_key: str) -> None:
-        self._signing_key = signing_key
-        self._cache: dict[str, tuple[float, LicenseCheckResult]] = {}
+    Returns:
+        Tuple of (private_key_pem, public_key_pem) as bytes.
+        Keep private_key_pem SECRET - only used for signing licenses.
+        Distribute public_key_pem with the application for verification.
+    """
+    private_key = ec.generate_private_key(ec.SECP256R1())
+    private_pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+    public_pem = private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    return private_pem, public_pem
+
+
+class LicenseSigner:
+    """Signs enterprise licenses using ECDSA private key.
+
+    This class should only be used server-side by administrators
+    to generate license tokens. Never distribute the private key.
+    """
+
+    _private_key: ec.EllipticCurvePrivateKey
+
+    def __init__(self, private_key_pem: bytes) -> None:
+        loaded_key = serialization.load_pem_private_key(private_key_pem, password=None)
+        if not isinstance(loaded_key, ec.EllipticCurvePrivateKey):
+            raise ValueError("Expected ECDSA private key")
+        self._private_key = loaded_key
 
     def create_license_token(self, license: EnterpriseLicense) -> str:
-        """Create a signed license token.
+        """Create a signed license token using ECDSA.
 
-        The token format is: base64(payload).signature
+        The token format is: base64(payload).base64(signature)
         """
         payload = license.to_dict()
         payload_json = json.dumps(payload, separators=(",", ":"), sort_keys=True)
         payload_b64 = base64.urlsafe_b64encode(payload_json.encode()).decode().rstrip("=")
 
-        signature = hmac.new(
-            self._signing_key.encode(),
+        signature = self._private_key.sign(
             payload_b64.encode(),
-            hashlib.sha256,
-        ).hexdigest()
+            ec.ECDSA(hashes.SHA256()),
+        )
+        signature_b64 = base64.urlsafe_b64encode(signature).decode().rstrip("=")
 
-        return f"{payload_b64}.{signature}"
+        return f"{payload_b64}.{signature_b64}"
+
+
+class LicenseValidator:
+    """Validates enterprise licenses using ECDSA public key.
+
+    This class can be safely distributed with the application.
+    It only requires the public key for verification.
+    """
+
+    _public_key: ec.EllipticCurvePublicKey
+
+    def __init__(self, public_key_pem: bytes) -> None:
+        loaded_key = serialization.load_pem_public_key(public_key_pem)
+        if not isinstance(loaded_key, ec.EllipticCurvePublicKey):
+            raise ValueError("Expected ECDSA public key")
+        self._public_key = loaded_key
+        self._cache: dict[str, tuple[float, LicenseCheckResult]] = {}
+
+    @classmethod
+    def from_public_key_string(cls, public_key_str: str) -> LicenseValidator:
+        """Create validator from PEM string (convenience method)."""
+        return cls(public_key_str.encode())
 
     def validate_token(self, token: str) -> LicenseCheckResult:
         """Validate a license token and return the license if valid.
@@ -202,19 +257,30 @@ class LicenseValidator:
                 message="Invalid license token format",
             )
 
-        payload_b64, signature = parts
+        payload_b64, signature_b64 = parts
 
-        expected_sig = hmac.new(
-            self._signing_key.encode(),
-            payload_b64.encode(),
-            hashlib.sha256,
-        ).hexdigest()
+        try:
+            sig_padding = 4 - len(signature_b64) % 4
+            if sig_padding != 4:
+                signature_b64 += "=" * sig_padding
+            signature = base64.urlsafe_b64decode(signature_b64)
 
-        if not hmac.compare_digest(signature, expected_sig):
+            self._public_key.verify(
+                signature,
+                payload_b64.encode(),
+                ec.ECDSA(hashes.SHA256()),
+            )
+        except InvalidSignature:
             logger.warning("license.invalid_signature")
             return LicenseCheckResult(
                 status=LicenseStatus.INVALID,
                 message="Invalid license signature",
+            )
+        except Exception as e:
+            logger.warning("license.signature_error: %s", e)
+            return LicenseCheckResult(
+                status=LicenseStatus.INVALID,
+                message="Failed to verify license signature",
             )
 
         try:

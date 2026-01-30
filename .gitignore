@@ -78,3 +78,7 @@ tmp/
 # Untracked directory for reproducing user scenarios
 my-insecure-app/
 threats/
+
+# ---- Enterprise Extraction (Private Repo Content) ----
+# This folder contains enterprise code to be moved to private repo
+SEPARATE/

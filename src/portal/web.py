@@ -23,6 +23,15 @@ from .auth import authenticate_request
 from .tenants import Tenant, TenantStore
 from .uploads import process_upload, validate_upload
 
+try:
+    from .enterprise import ENTERPRISE_AVAILABLE
+    from .enterprise import rbac as enterprise_rbac
+    from .enterprise import saml as enterprise_saml
+except ImportError:
+    ENTERPRISE_AVAILABLE = False
+    enterprise_saml = None  # type: ignore[assignment]
+    enterprise_rbac = None  # type: ignore[assignment]
+
 logger = logging.getLogger(__name__)
 
 Environ = dict[str, Any]

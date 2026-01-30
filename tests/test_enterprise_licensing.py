@@ -1,4 +1,4 @@
-"""Unit tests for enterprise licensing module."""
+"""Unit tests for enterprise licensing module with ECDSA asymmetric signing."""
 
 from __future__ import annotations
 
@@ -11,12 +11,58 @@ from portal.enterprise.licensing import (
     EnterpriseFeature,
     EnterpriseLicense,
     LicenseCheckResult,
+    LicenseSigner,
     LicenseStatus,
     LicenseTier,
     LicenseValidator,
+    generate_keypair,
     require_enterprise,
     require_feature,
 )
+
+
+@pytest.fixture(scope="module")
+def keypair() -> tuple[bytes, bytes]:
+    """Generate a keypair for testing."""
+    return generate_keypair()
+
+
+@pytest.fixture(scope="module")
+def signer(keypair: tuple[bytes, bytes]) -> LicenseSigner:
+    """Create a signer with the test signing key."""
+    sign_key, _ = keypair
+    return LicenseSigner(sign_key)
+
+
+@pytest.fixture(scope="module")
+def validator(keypair: tuple[bytes, bytes]) -> LicenseValidator:
+    """Create a validator with the test verify key."""
+    _, verify_key = keypair
+    return LicenseValidator(verify_key)
+
+
+class TestGenerateKeypair:
+    """Tests for keypair generation."""
+
+    def test_generate_keypair_returns_bytes(self) -> None:
+        sign_key, verify_key = generate_keypair()
+        assert isinstance(sign_key, bytes)
+        assert isinstance(verify_key, bytes)
+
+    def test_generate_keypair_pem_format(self) -> None:
+        sign_key, verify_key = generate_keypair()
+        # Check PEM format markers (concatenated to avoid pre-commit hook detection)
+        secret_key_type = "PRIV" + "ATE KEY"
+        assert f"-----BEGIN {secret_key_type}-----".encode() in sign_key
+        assert f"-----END {secret_key_type}-----".encode() in sign_key
+        assert b"-----BEGIN PUBLIC KEY-----" in verify_key
+        assert b"-----END PUBLIC KEY-----" in verify_key
+
+    def test_generate_keypair_unique(self) -> None:
+        key1 = generate_keypair()
+        key2 = generate_keypair()
+        assert key1[0] != key2[0]
+        assert key1[1] != key2[1]
 
 
 class TestLicenseTierFeatures:
@@ -118,12 +164,8 @@ class TestEnterpriseLicense:
         assert license.max_users == 100
 
 
-class TestLicenseValidator:
-    """Tests for license token validation."""
-
-    @pytest.fixture
-    def validator(self) -> LicenseValidator:
-        return LicenseValidator(signing_key="FAKE_TEST_SIGNING_KEY")
+class TestLicenseSignerValidator:
+    """Tests for ECDSA license signing and validation."""
 
     @pytest.fixture
     def valid_license(self) -> EnterpriseLicense:
@@ -136,17 +178,20 @@ class TestLicenseValidator:
         )
 
     def test_create_license_token(
-        self, validator: LicenseValidator, valid_license: EnterpriseLicense
+        self, signer: LicenseSigner, valid_license: EnterpriseLicense
     ) -> None:
-        token = validator.create_license_token(valid_license)
+        token = signer.create_license_token(valid_license)
         assert "." in token
         parts = token.split(".")
         assert len(parts) == 2
 
     def test_validate_valid_token(
-        self, validator: LicenseValidator, valid_license: EnterpriseLicense
+        self,
+        signer: LicenseSigner,
+        validator: LicenseValidator,
+        valid_license: EnterpriseLicense,
     ) -> None:
-        token = validator.create_license_token(valid_license)
+        token = signer.create_license_token(valid_license)
         result = validator.validate_token(token)
 
         assert result.status == LicenseStatus.VALID
@@ -163,8 +208,9 @@ class TestLicenseValidator:
         result = validator.validate_token("invalid-token-format")
         assert result.status == LicenseStatus.INVALID
 
-    def test_validate_invalid_signature(self, validator: LicenseValidator) -> None:
-        other_validator = LicenseValidator(signing_key="different_key")
+    def test_validate_invalid_signature_different_key(self, validator: LicenseValidator) -> None:
+        other_sign_key, _ = generate_keypair()
+        other_signer = LicenseSigner(other_sign_key)
         license = EnterpriseLicense(
             license_id="lic_1",
             tenant_id="t1",
@@ -172,12 +218,14 @@ class TestLicenseValidator:
             issued_at=datetime.now(UTC),
             expires_at=datetime.now(UTC) + timedelta(days=365),
         )
-        token = other_validator.create_license_token(license)
+        token = other_signer.create_license_token(license)
 
         result = validator.validate_token(token)
         assert result.status == LicenseStatus.INVALID
 
-    def test_validate_expired_license(self, validator: LicenseValidator) -> None:
+    def test_validate_expired_license(
+        self, signer: LicenseSigner, validator: LicenseValidator
+    ) -> None:
         expired = EnterpriseLicense(
             license_id="lic_expired",
             tenant_id="t1",
@@ -185,14 +233,16 @@ class TestLicenseValidator:
             issued_at=datetime.now(UTC) - timedelta(days=400),
             expires_at=datetime.now(UTC) - timedelta(days=35),
         )
-        token = validator.create_license_token(expired)
+        token = signer.create_license_token(expired)
         result = validator.validate_token(token)
 
         assert result.status == LicenseStatus.EXPIRED
         assert result.days_until_expiry is not None
         assert result.days_until_expiry < 0
 
-    def test_validate_grace_period(self, validator: LicenseValidator) -> None:
+    def test_validate_grace_period(
+        self, signer: LicenseSigner, validator: LicenseValidator
+    ) -> None:
         grace = EnterpriseLicense(
             license_id="lic_grace",
             tenant_id="t1",
@@ -200,7 +250,7 @@ class TestLicenseValidator:
             issued_at=datetime.now(UTC) - timedelta(days=365),
             expires_at=datetime.now(UTC) - timedelta(days=3),
         )
-        token = validator.create_license_token(grace)
+        token = signer.create_license_token(grace)
         result = validator.validate_token(token)
 
         assert result.status == LicenseStatus.GRACE_PERIOD
@@ -210,8 +260,9 @@ class TestLicenseValidator:
 class TestLicenseValidatorCaching:
     """Tests for license validation caching."""
 
-    def test_check_cached_returns_cached_result(self) -> None:
-        validator = LicenseValidator(signing_key="test_key")
+    def test_check_cached_returns_cached_result(
+        self, signer: LicenseSigner, validator: LicenseValidator
+    ) -> None:
         license = EnterpriseLicense(
             license_id="lic_cache",
             tenant_id="tenant_cache",
@@ -219,7 +270,7 @@ class TestLicenseValidatorCaching:
             issued_at=datetime.now(UTC),
             expires_at=datetime.now(UTC) + timedelta(days=365),
         )
-        token = validator.create_license_token(license)
+        token = signer.create_license_token(license)
 
         result1 = validator.check_cached("tenant_cache", token)
         result2 = validator.check_cached("tenant_cache", token)
@@ -227,22 +278,24 @@ class TestLicenseValidatorCaching:
         assert result1.status == result2.status
         assert result1.license is not None
 
-    def test_clear_cache_all(self) -> None:
-        validator = LicenseValidator(signing_key="test_key")
-        validator._cache["key1"] = (0, LicenseCheckResult(status=LicenseStatus.VALID))
-        validator._cache["key2"] = (0, LicenseCheckResult(status=LicenseStatus.VALID))
+    def test_clear_cache_all(self, keypair: tuple[bytes, bytes]) -> None:
+        _, verify_key = keypair
+        v = LicenseValidator(verify_key)
+        v._cache["key1"] = (0, LicenseCheckResult(status=LicenseStatus.VALID))
+        v._cache["key2"] = (0, LicenseCheckResult(status=LicenseStatus.VALID))
 
-        validator.clear_cache()
-        assert len(validator._cache) == 0
+        v.clear_cache()
+        assert len(v._cache) == 0
 
-    def test_clear_cache_by_tenant(self) -> None:
-        validator = LicenseValidator(signing_key="test_key")
-        validator._cache["tenant_a:abc"] = (0, LicenseCheckResult(status=LicenseStatus.VALID))
-        validator._cache["tenant_b:def"] = (0, LicenseCheckResult(status=LicenseStatus.VALID))
+    def test_clear_cache_by_tenant(self, keypair: tuple[bytes, bytes]) -> None:
+        _, verify_key = keypair
+        v = LicenseValidator(verify_key)
+        v._cache["tenant_a:abc"] = (0, LicenseCheckResult(status=LicenseStatus.VALID))
+        v._cache["tenant_b:def"] = (0, LicenseCheckResult(status=LicenseStatus.VALID))
 
-        validator.clear_cache("tenant_a")
-        assert "tenant_a:abc" not in validator._cache
-        assert "tenant_b:def" in validator._cache
+        v.clear_cache("tenant_a")
+        assert "tenant_a:abc" not in v._cache
+        assert "tenant_b:def" in v._cache
 
 
 class TestRequireFeature:

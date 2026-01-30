@@ -11,3 +11,4 @@ types-Jinja2
 rich
 jsonschema>=4.20.0
 types-jsonschema
+cryptography>=42.0.0

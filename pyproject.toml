@@ -34,6 +34,10 @@ no_implicit_optional = true
 check_untyped_defs = true
 exclude = ["apps/"]
 
+[[tool.mypy.overrides]]
+module = ["cryptography.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]
