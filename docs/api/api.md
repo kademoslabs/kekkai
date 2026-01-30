@@ -564,6 +564,6 @@ if __name__ == "__main__":
 
 ## See Also
 
-- [CLI Reference](cli-reference.md) - Command-line usage
-- [Configuration Guide](configuration.md) - Config options
-- [CI Integration Guide](ci-integration.md) - CI/CD setup
+- [CLI Reference](../ci/cli-reference.md) - Command-line usage
+- [Configuration Guide](../config/configuration.md) - Config options
+- [CI Integration Guide](../ci/ci-integration.md) - CI/CD setup

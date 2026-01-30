@@ -10,11 +10,11 @@ User-facing documentation for Kekkai CLI and related features.
 
 Essential guides for using Kekkai:
 
-- **[CLI Reference](cli-reference.md)** — Complete command reference with all flags
-- **[Configuration Guide](configuration.md)** — Config file format and environment variables
-- **[CI/CD Integration](ci-integration.md)** — GitHub Actions, GitLab CI, CircleCI setup
-- **[Troubleshooting](troubleshooting.md)** — Common issues and solutions
-- **[Python API](api.md)** — Programmatic usage documentation
+- **[CLI Reference](ci/cli-reference.md)** — Complete command reference with all flags
+- **[Configuration Guide](config/configuration.md)** — Config file format and environment variables
+- **[CI/CD Integration](ci/ci-integration.md)** — GitHub Actions, GitLab CI, CircleCI setup
+- **[Troubleshooting](troubleshooting/troubleshooting.md)** — Common issues and solutions
+- **[Python API](api/api.md)** — Programmatic usage documentation
 
 ### Kekkai Dojo (DefectDojo Orchestration)
 
@@ -66,10 +66,10 @@ New to Kekkai? Start here:
 
 1. **Install Kekkai** - Choose your installation method below
 2. Read the [main README](../README.md) for project overview
-3. Read the [CLI Reference](cli-reference.md) to learn all commands
-4. Check the [Configuration Guide](configuration.md) for setup options
+3. Read the [CLI Reference](ci/cli-reference.md) to learn all commands
+4. Check the [Configuration Guide](config/configuration.md) for setup options
 5. Follow the [Dojo Quick Start](dojo/dojo-quickstart.md) to run DefectDojo locally
-6. Set up CI with the [CI/CD Integration Guide](ci-integration.md)
+6. Set up CI with the [CI/CD Integration Guide](ci/ci-integration.md)
 
 ---
 
@@ -108,17 +108,18 @@ Kekkai supports multiple installation methods to fit your workflow:
 ```
 docs/
 ├── README.md                    # This file
-├── cli-reference.md             # Complete CLI command reference
-├── configuration.md             # Config file and env var documentation
-├── ci-integration.md            # CI/CD integration guides
-├── troubleshooting.md           # Common issues and solutions
-├── api.md                       # Python API reference
+├── api/
+│   └── api.md                   # Python API reference
 ├── ci/
+│   ├── ci-integration.md        # CI/CD integration guides
 │   ├── ci-mode.md               # CI policy enforcement guide
+│   ├── cli-reference.md         # Complete CLI command reference
 │   ├── docker-usage.md          # Docker usage guide
 │   ├── homebrew-maintenance.md  # Homebrew tap maintenance
 │   ├── scoop-integration.md     # Scoop/Windows integration
 │   └── automated-distributions.md # Distribution automation
+├── config/
+│   └── configuration.md         # Config file and env var documentation
 ├── installation/
 │   └── windows.md               # Windows installation guide
 ├── dojo/                        # DefectDojo Docs
@@ -133,8 +134,13 @@ docs/
 │   └── incident-response.md     # Incident response procedures
 ├── portal/                      # Portal Docs
 │   └── README.md                # Portal guide
-└── threatflow/                  # ThreatFlow Docs
-    └── README.md                # ThreatFlow guide
+├── threatflow/                  # ThreatFlow Docs
+│   └── README.md                # ThreatFlow guide
+├── triage/                      # Triage Docs
+│   ├── README.md                # Triage TUI guide
+│   └── fix-engine.md            # AI fix engine guide
+└── troubleshooting/
+    └── troubleshooting.md       # Common issues and solutions
 ```
 
 ---

@@ -217,6 +217,69 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Path for .kekkaiignore output (default: .kekkaiignore)",
     )
 
+    # Fix subcommand - AI-powered remediation
+    fix_parser = subparsers.add_parser("fix", help="generate AI-powered code fixes for findings")
+    fix_parser.add_argument(
+        "--input",
+        type=str,
+        help="Path to scan results JSON (Semgrep format)",
+    )
+    fix_parser.add_argument(
+        "--repo",
+        type=str,
+        help="Path to repository (default: current directory)",
+    )
+    fix_parser.add_argument(
+        "--output-dir",
+        type=str,
+        help="Output directory for diffs and audit log",
+    )
+    fix_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=True,
+        help="Preview fixes without applying (default: True)",
+    )
+    fix_parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Apply fixes to files (requires explicit flag)",
+    )
+    fix_parser.add_argument(
+        "--model-mode",
+        type=str,
+        choices=["local", "openai", "anthropic", "mock"],
+        default="local",
+        help="LLM backend: local (default), openai, anthropic, or mock",
+    )
+    fix_parser.add_argument(
+        "--api-key",
+        type=str,
+        help="API key for remote LLM (prefer KEKKAI_FIX_API_KEY env var)",
+    )
+    fix_parser.add_argument(
+        "--model-name",
+        type=str,
+        help="Specific model name to use",
+    )
+    fix_parser.add_argument(
+        "--max-fixes",
+        type=int,
+        default=10,
+        help="Maximum fixes to generate per run (default: 10)",
+    )
+    fix_parser.add_argument(
+        "--timeout",
+        type=int,
+        default=120,
+        help="Timeout in seconds for LLM calls (default: 120)",
+    )
+    fix_parser.add_argument(
+        "--no-backup",
+        action="store_true",
+        help="Disable backup creation when applying fixes",
+    )
+
     parsed = parser.parse_args(args)
     if parsed.command == "init":
         return _command_init(parsed.config, parsed.force)
@@ -249,6 +312,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _command_threatflow(parsed)
     if parsed.command == "triage":
         return _command_triage(parsed)
+    if parsed.command == "fix":
+        return _command_fix(parsed)
 
     parser.print_help()
     return 1
@@ -936,6 +1001,121 @@ def _command_triage(parsed: argparse.Namespace) -> int:
     console.print("Press Ctrl+S to save, q to quit\n")
 
     return run_triage(input_path=input_path, output_path=output_path)
+
+
+def _command_fix(parsed: argparse.Namespace) -> int:
+    """Run AI-powered code fix generation."""
+    from .fix import FixConfig, FixEngine
+
+    # Resolve input path
+    input_path_str = cast(str | None, getattr(parsed, "input", None))
+    if not input_path_str:
+        console.print("[danger]Error:[/danger] --input is required (path to scan results JSON)")
+        return 1
+
+    input_path = Path(input_path_str).expanduser().resolve()
+    if not input_path.exists():
+        console.print(f"[danger]Error:[/danger] Input file not found: {input_path}")
+        return 1
+
+    # Resolve repository path
+    repo_override = cast(str | None, getattr(parsed, "repo", None))
+    repo_path = Path(repo_override).expanduser().resolve() if repo_override else Path.cwd()
+
+    if not repo_path.exists() or not repo_path.is_dir():
+        console.print(f"[danger]Error:[/danger] Repository path not found: {repo_path}")
+        return 1
+
+    # Resolve output directory
+    output_dir_str = cast(str | None, getattr(parsed, "output_dir", None))
+    output_dir = Path(output_dir_str).expanduser().resolve() if output_dir_str else None
+
+    # Resolve model settings
+    model_mode = getattr(parsed, "model_mode", "local") or "local"
+    api_key = getattr(parsed, "api_key", None) or os.environ.get("KEKKAI_FIX_API_KEY")
+    model_name = getattr(parsed, "model_name", None)
+    max_fixes = getattr(parsed, "max_fixes", 10)
+    timeout = getattr(parsed, "timeout", 120)
+    no_backup = getattr(parsed, "no_backup", False)
+
+    # Determine dry_run: --apply overrides --dry-run
+    apply_fixes = getattr(parsed, "apply", False)
+    dry_run = not apply_fixes
+
+    # Display banner
+    console.print("\n[bold cyan]Kekkai Fix[/bold cyan] - AI-Powered Remediation")
+    console.print("=" * 50)
+    console.print(f"Repository: {repo_path}")
+    console.print(f"Input: {input_path}")
+    console.print(f"Model mode: {model_mode}")
+    console.print(f"Dry run: {dry_run}")
+
+    # Warn about remote mode
+    if model_mode in ("openai", "anthropic"):
+        console.print(
+            "\n[warning]*** WARNING: Using remote API. Code will be sent to external service. ***"
+            "[/warning]\n"
+        )
+        if not api_key:
+            console.print("[danger]Error:[/danger] API key required for remote mode.")
+            console.print("  Set --api-key or KEKKAI_FIX_API_KEY environment variable")
+            return 1
+
+    # Build config
+    config = FixConfig(
+        model_mode=model_mode,
+        api_key=api_key,
+        model_name=model_name,
+        max_fixes=max_fixes,
+        timeout_seconds=timeout,
+        dry_run=dry_run,
+        create_backups=not no_backup,
+    )
+
+    # Run fix engine
+    console.print("\nAnalyzing findings...")
+    engine = FixEngine(config)
+    result = engine.fix_from_scan_results(input_path, repo_path, output_dir)
+
+    if not result.success:
+        console.print(f"[danger]Error:[/danger] {result.error}")
+        return 1
+
+    # Print results
+    console.print("\n[success]Fix generation complete[/success]")
+    console.print(f"  Findings processed: {result.findings_processed}")
+    console.print(f"  Fixes generated: {result.fixes_generated}")
+
+    if not dry_run:
+        console.print(f"  Fixes applied: {result.fixes_applied}")
+
+    if result.warnings:
+        console.print("\n[warning]Warnings:[/warning]")
+        for w in result.warnings[:10]:
+            console.print(f"  - {sanitize_for_terminal(w)}")
+        if len(result.warnings) > 10:
+            console.print(f"  ... and {len(result.warnings) - 10} more")
+
+    # Show fix previews in dry run mode
+    if dry_run and result.suggestions:
+        console.print("\n[bold]Fix Previews:[/bold]")
+        for i, suggestion in enumerate(result.suggestions[:5], 1):
+            if suggestion.success:
+                console.print(
+                    f"\n--- Fix {i}: {suggestion.finding.file_path}:{suggestion.finding.line} ---"
+                )
+                console.print(f"Rule: {suggestion.finding.rule_id}")
+                console.print(suggestion.preview[:1000])
+                if len(suggestion.preview) > 1000:
+                    console.print("... (truncated)")
+        if len(result.suggestions) > 5:
+            console.print(f"\n... and {len(result.suggestions) - 5} more fixes")
+        console.print("\n[info]To apply fixes, run with --apply flag[/info]")
+
+    if result.audit_log_path:
+        console.print(f"\nAudit log: {result.audit_log_path}")
+
+    return 0
 
 
 def _resolve_dojo_compose_dir(parsed: argparse.Namespace) -> str | None:

@@ -544,6 +544,6 @@ timeout_seconds = 1800
 ## See Also
 
 - [CLI Reference](cli-reference.md) - All command options
-- [Configuration Guide](configuration.md) - Config file format
-- [Troubleshooting](troubleshooting.md) - Common issues
-- [CI Mode Details](ci/ci-mode.md) - In-depth CI mode documentation
+- [Configuration Guide](../config/configuration.md) - Config file format
+- [Troubleshooting](../troubleshooting/troubleshooting.md) - Common issues
+- [CI Mode Details](ci-mode.md) - In-depth CI mode documentation

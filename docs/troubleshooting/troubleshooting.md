@@ -616,6 +616,6 @@ If you're still stuck:
 
 ## See Also
 
-- [CLI Reference](cli-reference.md) - Command options
-- [Configuration Guide](configuration.md) - Config file format
-- [CI Integration Guide](ci-integration.md) - CI/CD setup
+- [CLI Reference](../ci/cli-reference.md) - Command options
+- [Configuration Guide](../config/configuration.md) - Config file format
+- [CI Integration Guide](../ci/ci-integration.md) - CI/CD setup

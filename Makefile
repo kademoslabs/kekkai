@@ -219,6 +219,11 @@ triage-test: ## Test triage TUI module
 	pytest -m "integration" tests/integration/test_triage_workflow.py -v
 	pytest -m "regression" tests/regression/test_triage_backwards_compat.py -v
 
+fix-test: ## Test AI-powered fix engine module
+	pytest tests/test_fix_*.py -v --cov=src/kekkai/fix --cov-report=term-missing --cov-fail-under=0
+	pytest -m "integration" tests/integration/test_fix_workflow.py -v
+	pytest -m "regression" tests/regression/test_fix_backwards_compat.py -v
+
 windows-unit: ## Windows unit tests
 	pytest tests/windows -v --cov=src/kekkai_core/windows --cov-report=term-missing
 

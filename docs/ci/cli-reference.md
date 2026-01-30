@@ -305,6 +305,51 @@ kekkai triage --input ./findings.json --output ./my-ignores.txt
 
 ---
 
+### `kekkai fix`
+
+Generate AI-powered code fixes for security findings.
+
+```bash
+kekkai fix [OPTIONS]
+```
+
+#### Options
+
+| Flag | Description |
+|------|-------------|
+| `--input PATH` | Path to scan results JSON (Semgrep format) [required] |
+| `--repo PATH` | Repository path (default: current directory) |
+| `--output-dir PATH` | Output directory for diffs and audit log |
+| `--dry-run` | Preview fixes without applying (default: True) |
+| `--apply` | Apply fixes to files (requires explicit flag) |
+| `--model-mode MODE` | LLM backend: local, openai, anthropic, mock |
+| `--api-key KEY` | API key for remote LLM (prefer `KEKKAI_FIX_API_KEY` env var) |
+| `--model-name NAME` | Specific model name to use |
+| `--max-fixes N` | Maximum fixes per run (default: 10) |
+| `--timeout SECONDS` | LLM call timeout (default: 120) |
+| `--no-backup` | Disable backup creation when applying |
+
+#### Examples
+
+```bash
+# Preview fixes (dry run)
+kekkai fix --input ./semgrep-results.json --repo ./my-app
+
+# Apply fixes with backups
+kekkai fix --input ./semgrep-results.json --repo ./my-app --apply
+
+# Use OpenAI for fix generation
+export KEKKAI_FIX_API_KEY=sk-...
+kekkai fix --input ./results.json --model-mode openai --model-name gpt-4o
+
+# Limit number of fixes
+kekkai fix --input ./results.json --max-fixes 5
+```
+
+See [Fix Engine Guide](../triage/fix-engine.md) for detailed documentation.
+
+---
+
 ## Exit Codes
 
 | Code | Meaning |
@@ -339,16 +384,17 @@ All configuration options can be set via environment variables with the `KEKKAI_
 | `KEKKAI_THREATFLOW_MODEL_PATH` | ThreatFlow local model path |
 | `KEKKAI_THREATFLOW_API_KEY` | ThreatFlow API key |
 | `KEKKAI_THREATFLOW_MODEL_NAME` | ThreatFlow model name |
+| `KEKKAI_FIX_API_KEY` | API key for fix engine LLM |
 | `GITHUB_TOKEN` | GitHub token for PR comments |
 | `GITHUB_REPOSITORY` | GitHub repository (auto-detected in Actions) |
 | `GITHUB_EVENT_PATH` | GitHub event path (auto-detected in Actions) |
 
-See [Configuration Guide](configuration.md) for complete configuration reference.
+See [Configuration Guide](../config/configuration.md) for complete configuration reference.
 
 ---
 
 ## See Also
 
-- [Configuration Guide](configuration.md) - Config file format and options
+- [Configuration Guide](../config/configuration.md) - Config file format and options
 - [CI Integration Guide](ci-integration.md) - CI/CD setup
-- [Troubleshooting](troubleshooting.md) - Common issues and solutions
+- [Troubleshooting](../troubleshooting/troubleshooting.md) - Common issues and solutions

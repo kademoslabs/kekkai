@@ -353,6 +353,6 @@ redact_secrets = true
 
 ## See Also
 
-- [CLI Reference](cli-reference.md) - Command-line options
-- [CI Integration Guide](ci-integration.md) - CI/CD setup
-- [Troubleshooting](troubleshooting.md) - Common issues
+- [CLI Reference](../ci/cli-reference.md) - Command-line options
+- [CI Integration Guide](../ci/ci-integration.md) - CI/CD setup
+- [Troubleshooting](../troubleshooting/troubleshooting.md) - Common issues

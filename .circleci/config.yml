@@ -43,6 +43,11 @@ jobs:
             . .venv/bin/activate
             make chocolatey-unit
       - run:
+          name: Fix engine tests
+          command: |
+            . .venv/bin/activate
+            make fix-test
+      - run:
           name: pipx install test
           command: |
             . .venv/bin/activate
