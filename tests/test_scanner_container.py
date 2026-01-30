@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 from kekkai.scanners.container import (
     ContainerConfig,
     ContainerResult,
+    _resolve_image_ref,
     docker_command,
 )
 
@@ -67,3 +68,42 @@ class TestDockerCommand:
         mock_which.return_value = None
         with pytest.raises(RuntimeError, match="Docker not found"):
             docker_command()
+
+
+class TestResolveImageRef:
+    """Tests for _resolve_image_ref function."""
+
+    def test_with_digest(self) -> None:
+        """Test image ref with digest uses @digest format."""
+        ref = _resolve_image_ref("aquasec/trivy", "sha256:abc123")
+        assert ref == "aquasec/trivy@sha256:abc123"
+
+    def test_without_digest_or_tag_adds_latest(self) -> None:
+        """Test image without tag gets :latest appended."""
+        ref = _resolve_image_ref("returntocorp/semgrep", None)
+        assert ref == "returntocorp/semgrep:latest"
+
+    def test_with_existing_tag_preserved(self) -> None:
+        """Test image with existing tag is preserved."""
+        ref = _resolve_image_ref("aquasec/trivy:0.48.3", None)
+        assert ref == "aquasec/trivy:0.48.3"
+
+    def test_digest_takes_precedence_over_tag(self) -> None:
+        """Test that digest is used even if image has a tag."""
+        ref = _resolve_image_ref("aquasec/trivy:0.48.3", "sha256:xyz789")
+        assert ref == "aquasec/trivy:0.48.3@sha256:xyz789"
+
+    def test_simple_image_name(self) -> None:
+        """Test simple image name without namespace."""
+        ref = _resolve_image_ref("python", None)
+        assert ref == "python:latest"
+
+    def test_image_with_registry(self) -> None:
+        """Test image with registry prefix."""
+        ref = _resolve_image_ref("ghcr.io/user/image", None)
+        assert ref == "ghcr.io/user/image:latest"
+
+    def test_image_with_registry_and_tag(self) -> None:
+        """Test image with registry and tag."""
+        ref = _resolve_image_ref("ghcr.io/user/image:v1.0", None)
+        assert ref == "ghcr.io/user/image:v1.0"

@@ -93,6 +93,57 @@ kekkai threatflow --repo . --model-mode local
 
 ---
 
+## 🤖 ThreatFlow Configuration
+
+ThreatFlow generates AI-powered threat models and data flow diagrams. It supports multiple backends:
+
+### Local LLM (Privacy-Preserving)
+
+Run threat analysis entirely on your machine using a local model:
+
+1. **Install the inference library:**
+   ```bash
+   pip install llama-cpp-python
+   ```
+
+2. **Download a GGUF model** (e.g., [Mistral-7B-Instruct](https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF)):
+   ```bash
+   # Example: Download Q4_K_M quantized model (~4.4GB)
+   wget https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF/resolve/main/mistral-7b-instruct-v0.2.Q4_K_M.gguf
+   ```
+
+3. **Run ThreatFlow:**
+   ```bash
+   kekkai threatflow \
+     --repo . \
+     --model-mode local \
+     --model-path /path/to/mistral-7b-instruct.gguf \
+     --output-dir ./threats
+   ```
+
+### Remote API (OpenAI / Anthropic)
+
+For faster results without local GPU requirements:
+
+```bash
+# Using environment variable
+export KEKKAI_THREATFLOW_API_KEY="sk-..."
+kekkai threatflow --repo . --model-mode openai
+
+# Or pass directly
+kekkai threatflow --repo . --model-mode anthropic --api-key "sk-ant-..."
+```
+
+### Mock Mode (Testing)
+
+The `--model-mode mock` option returns stub responses for testing pipelines. It does **not** perform actual analysis.
+
+### Output Formatting
+
+ThreatFlow uses the `rich` library for colored terminal output. If you see raw ANSI codes (`[3m`, `[36m`), ensure you're running in a standard terminal (VSCode integrated terminal, iTerm2, or native Bash/Zsh).
+
+---
+
 ## 🔒 Enterprise Features (Portal)
 
 For teams that need centralized management, **Kekkai Portal** offers:
@@ -119,4 +170,4 @@ For teams that need centralized management, **Kekkai Portal** offers:
 [![Docker Security Scan](https://github.com/kademoslabs/kekkai/actions/workflows/docker-security-scan.yml/badge.svg)](https://github.com/kademoslabs/kekkai/actions/workflows/docker-security-scan.yml)
 [![Cross‑Platform Tests](https://github.com/kademoslabs/kekkai/actions/workflows/test-cross-platform.yml/badge.svg)](https://github.com/kademoslabs/kekkai/actions/workflows/test-cross-platform.yml)
 [![Release with SLSA Provenance](https://github.com/kademoslabs/kekkai/actions/workflows/release-slsa.yml/badge.svg)](https://github.com/kademoslabs/kekkai/actions/workflows/release-slsa.yml)
-- 
+-

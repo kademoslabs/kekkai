@@ -49,7 +49,10 @@ def compose_command() -> list[str]:
     docker_compose = shutil.which("docker-compose")
     if docker_compose:
         return [docker_compose]
-    raise RuntimeError("Docker Compose not found; install docker and docker compose")
+    raise RuntimeError(
+        "Docker Compose not found. Please install Docker Desktop "
+        "or the 'docker-compose-plugin' package for your system."
+    )
 
 
 def check_port_available(port: int, host: str = "127.0.0.1") -> bool:
@@ -115,7 +118,6 @@ def ensure_env(path: Path, port: int, tls_port: int) -> dict[str, str]:
 
 def build_compose_yaml() -> str:
     return (
-        'version: "3.9"\n'
         "services:\n"
         "  nginx:\n"
         "    image: defectdojo/defectdojo-nginx:${NGINX_VERSION:-latest}\n"
@@ -318,7 +320,11 @@ def compose_down(*, compose_root: Path, project_name: str) -> None:
         "--profile",
         DOJO_PROFILE,
     ]
-    proc = subprocess.run(cmd + ["down", "--remove-orphans"], capture_output=True, text=True)  # noqa: S603  # nosec B603
+    proc = subprocess.run(  # noqa: S603  # nosec B603
+        cmd + ["down", "--remove-orphans", "--volumes"],
+        capture_output=True,
+        text=True,
+    )
     if proc.returncode != 0:
         raise RuntimeError(proc.stderr.strip() or "Failed to stop DefectDojo")
 

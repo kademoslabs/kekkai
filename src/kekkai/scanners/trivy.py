@@ -15,7 +15,7 @@ from .base import Finding, ScanContext, ScanResult, Severity
 from .container import ContainerConfig, run_container
 
 TRIVY_IMAGE = "aquasec/trivy"
-TRIVY_DIGEST = "sha256:e9d62d670b10c9f78bb7c61d5c1f6e0bb32fc8bd0f6e1a7dd0c4e6b7f5df0a30"
+TRIVY_DIGEST: str | None = None  # Allow Docker to pull architecture-appropriate image
 SCAN_TYPE = "Trivy Scan"
 
 

@@ -16,7 +16,7 @@ from .base import Finding, ScanContext, ScanResult, Severity
 from .container import ContainerConfig, run_container
 
 SEMGREP_IMAGE = "returntocorp/semgrep"
-SEMGREP_DIGEST = "sha256:a5a71b85df0c65c58f13e94c0d0ce7d8e7c8d123456789abcdef0123456789ab"
+SEMGREP_DIGEST: str | None = None  # Allow Docker to pull architecture-appropriate image
 SCAN_TYPE = "Semgrep JSON Report"
 
 

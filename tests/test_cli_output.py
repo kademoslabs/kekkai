@@ -107,11 +107,23 @@ class TestPrintDashboard:
 class TestPrintScanSummary:
     """Tests for scan summary table rendering."""
 
-    def test_empty_results(self) -> None:
-        output = print_scan_summary([], force_plain=True)
+    def test_empty_results(self, capsys: object) -> None:
+        import sys
+        from io import StringIO
+
+        captured = StringIO()
+        sys.stdout = captured
+        try:
+            print_scan_summary([], force_plain=True)
+        finally:
+            sys.stdout = sys.__stdout__
+        output = captured.getvalue()
         assert "Scan Summary:" in output
 
-    def test_single_scanner_success(self) -> None:
+    def test_single_scanner_success(self, capsys: object) -> None:
+        import sys
+        from io import StringIO
+
         rows = [
             ScanSummaryRow(
                 scanner="trivy",
@@ -120,13 +132,22 @@ class TestPrintScanSummary:
                 duration_ms=1234,
             )
         ]
-        output = print_scan_summary(rows, force_plain=True)
+        captured = StringIO()
+        sys.stdout = captured
+        try:
+            print_scan_summary(rows, force_plain=True)
+        finally:
+            sys.stdout = sys.__stdout__
+        output = captured.getvalue()
         assert "trivy" in output
         assert "OK" in output
         assert "5" in output
         assert "1234ms" in output
 
-    def test_scanner_failure(self) -> None:
+    def test_scanner_failure(self, capsys: object) -> None:
+        import sys
+        from io import StringIO
+
         rows = [
             ScanSummaryRow(
                 scanner="semgrep",
@@ -135,22 +156,40 @@ class TestPrintScanSummary:
                 duration_ms=500,
             )
         ]
-        output = print_scan_summary(rows, force_plain=True)
+        captured = StringIO()
+        sys.stdout = captured
+        try:
+            print_scan_summary(rows, force_plain=True)
+        finally:
+            sys.stdout = sys.__stdout__
+        output = captured.getvalue()
         assert "semgrep" in output
         assert "FAIL" in output
 
-    def test_multiple_scanners(self) -> None:
+    def test_multiple_scanners(self, capsys: object) -> None:
+        import sys
+        from io import StringIO
+
         rows = [
             ScanSummaryRow("trivy", True, 3, 1000),
             ScanSummaryRow("semgrep", True, 7, 2000),
             ScanSummaryRow("gitleaks", False, 0, 100),
         ]
-        output = print_scan_summary(rows, force_plain=True)
+        captured = StringIO()
+        sys.stdout = captured
+        try:
+            print_scan_summary(rows, force_plain=True)
+        finally:
+            sys.stdout = sys.__stdout__
+        output = captured.getvalue()
         assert "trivy" in output
         assert "semgrep" in output
         assert "gitleaks" in output
 
-    def test_sanitizes_scanner_names(self) -> None:
+    def test_sanitizes_scanner_names(self, capsys: object) -> None:
+        import sys
+        from io import StringIO
+
         rows = [
             ScanSummaryRow(
                 scanner="\x1b[31mmalicious\x1b[0m",
@@ -159,7 +198,13 @@ class TestPrintScanSummary:
                 duration_ms=100,
             )
         ]
-        output = print_scan_summary(rows, force_plain=True)
+        captured = StringIO()
+        sys.stdout = captured
+        try:
+            print_scan_summary(rows, force_plain=True)
+        finally:
+            sys.stdout = sys.__stdout__
+        output = captured.getvalue()
         assert "\x1b[" not in output
         assert "malicious" in output
 

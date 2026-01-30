@@ -16,7 +16,7 @@ from .base import Finding, ScanContext, ScanResult, Severity
 from .container import ContainerConfig, run_container
 
 GITLEAKS_IMAGE = "zricethezav/gitleaks"
-GITLEAKS_DIGEST = "sha256:691af3c7c5a48b16f187ce3446d5f194838f91238f27270ed36eef6359a574d9"
+GITLEAKS_DIGEST: str | None = None  # Allow Docker to pull architecture-appropriate image
 SCAN_TYPE = "Gitleaks Scan"
 
 
@@ -85,6 +85,7 @@ class GitleaksScanner:
             "detect",
             "--source",
             "/repo",
+            "--no-git",  # Scan all files, not just git-tracked
             "--report-format",
             "json",
             "--report-path",
@@ -125,6 +126,7 @@ class GitleaksScanner:
             "detect",
             "--source",
             str(ctx.repo_path),
+            "--no-git",  # Scan all files, not just git-tracked
             "--report-format",
             "json",
             "--report-path",

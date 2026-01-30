@@ -94,6 +94,21 @@ def test_compose_command_falls_back(monkeypatch: pytest.MonkeyPatch) -> None:
     assert compose_command() == ["/usr/bin/docker-compose"]
 
 
+def test_compose_command_not_found_error_message(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_which(_name: str) -> str | None:
+        return None
+
+    monkeypatch.setattr("kekkai.dojo.shutil.which", fake_which)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        compose_command()
+
+    error_msg = str(exc_info.value)
+    assert "Docker Compose not found" in error_msg
+    assert "Docker Desktop" in error_msg
+    assert "docker-compose-plugin" in error_msg
+
+
 def test_compose_up_down_status(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     class FakeProc:
         def __init__(self, stdout: str = "[]") -> None:

@@ -135,17 +135,18 @@ def print_scan_summary(
     rows: Sequence[ScanSummaryRow],
     *,
     force_plain: bool = False,
-) -> str:
-    """Render scan results as a formatted table."""
+) -> None:
+    """Render scan results as a formatted table.
+
+    Prints directly to console/stdout to ensure proper ANSI rendering.
+    """
     if force_plain or not console.is_terminal:
-        lines = ["Scan Summary:"]
+        print("Scan Summary:")
         for row in rows:
             status = "OK" if row.success else "FAIL"
             scanner_name = sanitize_for_terminal(row.scanner)
-            lines.append(
-                f"  {scanner_name}: {status}, {row.findings_count} findings, {row.duration_ms}ms"
-            )
-        return "\n".join(lines)
+            print(f"  {scanner_name}: {status}, {row.findings_count} findings, {row.duration_ms}ms")
+        return
 
     table = Table(title="Scan Summary", show_header=True, header_style="bold", box=box.SIMPLE)
     table.add_column("Scanner", style="cyan")
@@ -162,10 +163,7 @@ def print_scan_summary(
             f"{row.duration_ms}ms",
         )
 
-    with console.capture() as capture:
-        console.print(table)
-    result: str = capture.get()
-    return result
+    console.print(table)
 
 
 def sanitize_for_terminal(text: str) -> str:

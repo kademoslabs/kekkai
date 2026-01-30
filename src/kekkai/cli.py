@@ -543,7 +543,7 @@ def _print_scan_summary_table(scan_results: list[ScanResult]) -> None:
         )
         for r in scan_results
     ]
-    console.print(print_scan_summary(rows))
+    print_scan_summary(rows)
 
 
 def _print_policy_summary(result: PolicyResult) -> None:

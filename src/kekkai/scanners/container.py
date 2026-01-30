@@ -36,6 +36,19 @@ def docker_command() -> str:
     return docker
 
 
+def _resolve_image_ref(image: str, digest: str | None) -> str:
+    """Resolve full image reference with tag or digest.
+
+    Ensures images have explicit :latest tag when no digest or tag is provided
+    for reliable cross-platform pulling.
+    """
+    if digest:
+        return f"{image}@{digest}"
+    if ":" not in image:
+        return f"{image}:latest"
+    return image
+
+
 def run_container(
     config: ContainerConfig,
     repo_path: Path,
@@ -61,7 +74,7 @@ def run_container(
         user: User to run as (default: 1000:1000, None for container default)
     """
     docker = docker_command()
-    image_ref = f"{config.image}@{config.image_digest}" if config.image_digest else config.image
+    image_ref = _resolve_image_ref(config.image, config.image_digest)
 
     args = [
         docker,
@@ -73,7 +86,20 @@ def run_container(
         args.extend(["--user", user])
 
     if config.read_only:
-        args.extend(["--read-only", "--tmpfs", "/tmp:rw,noexec,nosuid,size=512m"])  # nosec B108  # noqa: S108
+        args.extend(["--read-only"])
+        # Determine uid/gid for tmpfs ownership (match container user)
+        tmpfs_opts = "rw"
+        if user:
+            uid_gid = user.split(":")[0]
+            tmpfs_opts = f"rw,uid={uid_gid},gid={uid_gid}"
+        # Core temp directory (2GB for Trivy DB ~500MB + scanner temp files)
+        args.extend(["--tmpfs", f"/tmp:{tmpfs_opts},noexec,nosuid,size=2g"])  # nosec B108  # noqa: S108
+        # Scanner cache directories (Trivy DB, Semgrep cache, etc.)
+        args.extend(["--tmpfs", f"/root:{tmpfs_opts},size=1g"])
+        # Generic home for tools that need writable home
+        args.extend(["--tmpfs", f"/home:{tmpfs_opts},size=256m"])
+        # Set HOME env to writable location for tools that use $HOME/.cache
+        args.extend(["-e", "HOME=/tmp"])
 
     if config.network_disabled:
         args.extend(["--network", "none"])
@@ -132,8 +158,12 @@ def run_container(
 
 
 def pull_image(image: str, digest: str | None = None) -> bool:
+    """Pull a Docker image.
+
+    Uses _resolve_image_ref to ensure proper tag handling.
+    """
     docker = docker_command()
-    ref = f"{image}@{digest}" if digest else image
+    ref = _resolve_image_ref(image, digest)
     proc = subprocess.run(  # noqa: S603  # nosec B603
         [docker, "pull", ref],
         capture_output=True,
