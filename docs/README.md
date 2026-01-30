@@ -6,6 +6,16 @@ User-facing documentation for Kekkai CLI and related features.
 
 ## Quick Links
 
+### Core Documentation
+
+Essential guides for using Kekkai:
+
+- **[CLI Reference](cli-reference.md)** — Complete command reference with all flags
+- **[Configuration Guide](configuration.md)** — Config file format and environment variables
+- **[CI/CD Integration](ci-integration.md)** — GitHub Actions, GitLab CI, CircleCI setup
+- **[Troubleshooting](troubleshooting.md)** — Common issues and solutions
+- **[Python API](api.md)** — Programmatic usage documentation
+
 ### Kekkai Dojo (DefectDojo Orchestration)
 
 Run a local DefectDojo vulnerability management platform with one command.
@@ -56,9 +66,10 @@ New to Kekkai? Start here:
 
 1. **Install Kekkai** - Choose your installation method below
 2. Read the [main README](../README.md) for project overview
-3. Follow the [Dojo Quick Start](dojo/dojo-quickstart.md) to run DefectDojo locally
-4. Check the [Dojo Guide](dojo/dojo.md) for advanced usage
-5. Set up CI with the [CI Mode Guide](ci/ci-mode.md)
+3. Read the [CLI Reference](cli-reference.md) to learn all commands
+4. Check the [Configuration Guide](configuration.md) for setup options
+5. Follow the [Dojo Quick Start](dojo/dojo-quickstart.md) to run DefectDojo locally
+6. Set up CI with the [CI/CD Integration Guide](ci-integration.md)
 
 ---
 
@@ -97,6 +108,11 @@ Kekkai supports multiple installation methods to fit your workflow:
 ```
 docs/
 ├── README.md                    # This file
+├── cli-reference.md             # Complete CLI command reference
+├── configuration.md             # Config file and env var documentation
+├── ci-integration.md            # CI/CD integration guides
+├── troubleshooting.md           # Common issues and solutions
+├── api.md                       # Python API reference
 ├── ci/
 │   ├── ci-mode.md               # CI policy enforcement guide
 │   ├── docker-usage.md          # Docker usage guide
