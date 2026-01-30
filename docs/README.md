@@ -34,11 +34,16 @@ Use Kekkai in CI/CD pipelines to fail builds on security findings and automate d
 - **[Homebrew Maintenance](ci/homebrew-maintenance.md)** — Homebrew tap updates
 - **[Automated Distributions](ci/automated-distributions.md)** — Automated distribution trigger system
 
-### Portal (Hosted Dashboard)
+### Portal (Enterprise Dashboard)
 
-Multi-tenant hosted security dashboard with authenticated uploads.
+Multi-tenant hosted security dashboard with authenticated uploads and enterprise features.
 
-- **[Portal Guide](portal/README.md)** — Setup, API reference, and configuration
+- **[Portal Overview](portal/README.md)** — Setup, API reference, and configuration
+- **[SAML 2.0 SSO Setup](portal/saml-setup.md)** — Configure SSO with Okta, Azure AD, Google
+- **[RBAC Configuration](portal/rbac.md)** — Role-based access control setup
+- **[Multi-Tenant Architecture](portal/multi-tenant.md)** — Tenant isolation and data segregation
+- **[CLI-Portal Sync](portal/cli-sync.md)** — Upload scan results from CLI to Portal
+- **[Deployment Guide](portal/deployment.md)** — Self-hosted and on-premises deployment
 
 ### ThreatFlow (AI-Powered Threat Modeling)
 
@@ -139,7 +144,12 @@ docs/
 │   ├── monitoring.md            # Monitoring and alerting
 │   └── incident-response.md     # Incident response procedures
 ├── portal/                      # Portal Docs
-│   └── README.md                # Portal guide
+│   ├── README.md                # Portal overview
+│   ├── saml-setup.md            # SAML 2.0 SSO configuration
+│   ├── rbac.md                  # Role-based access control
+│   ├── multi-tenant.md          # Multi-tenant architecture
+│   ├── cli-sync.md              # CLI-to-Portal sync
+│   └── deployment.md            # Deployment options
 ├── threatflow/                  # ThreatFlow Docs
 │   └── README.md                # ThreatFlow guide
 ├── compliance/                  # Compliance Reporting Docs

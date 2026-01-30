@@ -2,13 +2,39 @@
 
 The Kekkai Portal is a hosted, multi-tenant security dashboard backed by DefectDojo. It provides authenticated file uploads, tenant isolation, and a modern Kekkai-themed UI.
 
+---
+
+## Documentation
+
+| Guide | Description |
+|-------|-------------|
+| **[This Page](#quick-start)** | Overview, API reference, basic setup |
+| **[SAML 2.0 Setup](saml-setup.md)** | Configure SSO with Okta, Azure AD, Google |
+| **[RBAC Configuration](rbac.md)** | Role-based access control setup |
+| **[Multi-Tenant Architecture](multi-tenant.md)** | Tenant isolation and data segregation |
+| **[CLI-Portal Sync](cli-sync.md)** | Upload scan results from CLI |
+| **[Deployment Guide](deployment.md)** | Self-hosted and on-premises deployment |
+
+---
+
 ## Features
 
-- **Multi-tenant Architecture**: Complete isolation between tenants
+### Community Features (Free)
+
 - **Authenticated Uploads**: Bearer token authentication for API access
 - **File Validation**: Type and size restrictions on uploads (JSON/SARIF only)
 - **Secure by Default**: Security headers, rate limiting, no sensitive data logging
 - **Kekkai Branding**: Modern UI with Kekkai theme colors
+
+### Enterprise Features (Licensed)
+
+- **SAML 2.0 SSO**: Integrate with Okta, Azure AD, Google Workspace
+- **Role-Based Access Control**: Viewer, Analyst, Admin, Tenant Admin roles
+- **Multi-tenant Architecture**: Complete isolation between organizations
+- **Audit Logging**: Cryptographically signed compliance trails
+- **Priority Support**: SLA guarantees for enterprise customers
+
+[Contact Sales for Enterprise License](mailto:sales@kademos.org)
 
 ## Quick Start
 
@@ -256,7 +282,36 @@ Only `.json` and `.sarif` files are accepted. Ensure your file has the correct e
 
 Check your tenant's `max_upload_size_mb` setting. Default is 10MB.
 
+---
+
+## Pricing
+
+### Community Edition (Free)
+
+- Unlimited local scanning via CLI
+- Local DefectDojo via `kekkai dojo up`
+- Single-user, single-tenant Portal
+- Apache 2.0 License
+
+### Enterprise Edition
+
+- SAML 2.0 SSO integration
+- Role-Based Access Control (RBAC)
+- Multi-tenant architecture
+- Audit logging for compliance
+- Self-hosted or on-premises deployment
+- Priority support with SLA
+
+**Pricing**: Custom annual license. [Contact Sales](mailto:sales@kademos.org) for demo and quote.
+
+---
+
 ## Related Documentation
 
-- [CI Mode Guide](../ci-mode.md) - Using Kekkai in CI/CD
+- [SAML 2.0 Setup](saml-setup.md) - Configure enterprise SSO
+- [RBAC Configuration](rbac.md) - Role and permission setup
+- [Multi-Tenant Architecture](multi-tenant.md) - Tenant isolation
+- [CLI-Portal Sync](cli-sync.md) - Upload scans from CLI
+- [Deployment Guide](deployment.md) - Production deployment
+- [CI Mode Guide](../ci/ci-mode.md) - Using Kekkai in CI/CD
 - [Dojo Guide](../dojo/dojo.md) - Local DefectDojo orchestration

@@ -274,16 +274,16 @@ For teams that need centralized management, **Kekkai Portal** provides:
 
 | Feature | Description |
 |---------|-------------|
-| **SAML 2.0 SSO** | Integrate with Okta, Azure AD, Google Workspace |
-| **Role-Based Access Control** | Fine-grained permissions per team/project |
-| **Multi-Tenant Architecture** | Isolated environments per organization |
+| **SAML 2.0 SSO** | Integrate with Okta, Azure AD, Google Workspace ([Setup Guide](docs/portal/saml-setup.md)) |
+| **Role-Based Access Control** | Fine-grained permissions per team/project ([RBAC Guide](docs/portal/rbac.md)) |
+| **Multi-Tenant Architecture** | Isolated environments per organization ([Architecture](docs/portal/multi-tenant.md)) |
 | **Aggregated Dashboards** | Centralized view of all CLI scan results |
 | **Audit Logging** | Cryptographically signed compliance trails |
 
 **Upgrade Path:**
-- CLI users can sync results to Portal: `kekkai sync --portal`
+- CLI users can sync results to Portal: `kekkai upload` ([Sync Guide](docs/portal/cli-sync.md))
 - Portal provides dashboards for security managers
-- Self-hosted or Kademos-managed options
+- Self-hosted or Kademos-managed options ([Deployment Guide](docs/portal/deployment.md))
 
 [Contact us for Portal access →](mailto:sales@kademos.org)
 
@@ -311,7 +311,10 @@ For vulnerability reports, see [SECURITY.md](SECURITY.md).
 | [ThreatFlow](docs/threatflow/README.md) | AI threat modeling setup |
 | [Dojo Quick Start](docs/dojo/dojo-quickstart.md) | DefectDojo in 5 minutes |
 | [CI Mode](docs/ci/ci-mode.md) | Pipeline integration |
-| [Portal](docs/portal/README.md) | Enterprise features |
+| [Portal](docs/portal/README.md) | Enterprise features overview |
+| [Portal SSO](docs/portal/saml-setup.md) | SAML 2.0 SSO configuration |
+| [Portal RBAC](docs/portal/rbac.md) | Role-based access control |
+| [Portal Deployment](docs/portal/deployment.md) | Self-hosted deployment |
 | [Security](docs/security/slsa-provenance.md) | SLSA provenance verification |
 
 ---
