@@ -125,7 +125,7 @@ def test_compose_up_down_status(monkeypatch: pytest.MonkeyPatch, tmp_path: Path)
     monkeypatch.setattr("kekkai.dojo.wait_for_ui", lambda *_args, **_kwargs: None)
 
     compose_root = tmp_path / "dojo"
-    env = compose_up(
+    env, actual_port, actual_tls_port = compose_up(
         compose_root=compose_root,
         project_name="kekkai",
         port=8080,
@@ -134,6 +134,8 @@ def test_compose_up_down_status(monkeypatch: pytest.MonkeyPatch, tmp_path: Path)
         open_browser=False,
     )
     assert env["DD_ADMIN_USER"] == "admin"
+    assert actual_port == 8080
+    assert actual_tls_port == 8443
     assert (compose_root / "docker-compose.yml").exists()
 
     statuses = compose_status(compose_root=compose_root, project_name="kekkai")

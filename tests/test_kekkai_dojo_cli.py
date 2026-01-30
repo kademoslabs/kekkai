@@ -10,14 +10,20 @@ from kekkai.dojo import ServiceStatus
 
 
 def test_cli_dojo_up(monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]) -> None:
-    def fake_compose_up(**_kwargs: Any) -> dict[str, str]:
-        return {"DD_ADMIN_USER": "admin"}
+    def fake_compose_up(**kwargs: Any) -> tuple[dict[str, str], int, int]:
+        return (
+            {"DD_ADMIN_USER": "admin", "DD_ADMIN_PASSWORD": "test123"},
+            kwargs.get("port", 8080),
+            kwargs.get("tls_port", 8443),
+        )
 
     monkeypatch.setattr("kekkai.cli.dojo.compose_up", fake_compose_up)
     exit_code = cli.main(["dojo", "up", "--port", "8081", "--tls-port", "8444"])
     assert exit_code == 0
     out = capfd.readouterr().out
-    assert "DefectDojo is starting" in out
+    assert "DefectDojo is ready" in out
+    assert "Username: admin" in out
+    assert "Password:" in out
 
 
 def test_cli_dojo_status(

@@ -65,6 +65,21 @@ def check_port_available(port: int, host: str = "127.0.0.1") -> bool:
     return True
 
 
+def find_available_port(preferred: int, max_attempts: int = 20) -> tuple[int, bool]:
+    """Find an available port, starting from preferred.
+
+    Returns:
+        Tuple of (port, was_fallback) - was_fallback is True if not the preferred port
+    """
+    if check_port_available(preferred):
+        return preferred, False
+    for offset in range(1, max_attempts + 1):
+        candidate = preferred + offset
+        if check_port_available(candidate):
+            return candidate, True
+    raise RuntimeError(f"No available ports found in range {preferred}-{preferred + max_attempts}")
+
+
 def load_env_file(path: Path) -> dict[str, str]:
     if not path.exists():
         return {}
@@ -280,15 +295,24 @@ def compose_up(
     tls_port: int,
     wait: bool,
     open_browser: bool,
-) -> dict[str, str]:
-    if not check_port_available(port):
-        raise RuntimeError(f"Port {port} is already in use")
-    if not check_port_available(tls_port):
-        raise RuntimeError(f"Port {tls_port} is already in use")
+) -> tuple[dict[str, str], int, int]:
+    """Start DefectDojo stack.
+
+    Returns:
+        Tuple of (env_dict, actual_port, actual_tls_port)
+    """
+    # Auto-select available ports
+    actual_port, port_fallback = find_available_port(port)
+    actual_tls_port, tls_fallback = find_available_port(tls_port)
 
     compose_file = compose_root / "docker-compose.yml"
     env_file = compose_root / ".env"
-    env = ensure_compose_files(compose_file, env_file, port, tls_port)
+    env = ensure_compose_files(compose_file, env_file, actual_port, actual_tls_port)
+
+    # Store port info for later retrieval
+    env["DD_PORT"] = str(actual_port)
+    env["DD_TLS_PORT"] = str(actual_tls_port)
+    write_env_file(env_file, env)
 
     cmd = compose_command() + [
         "--project-name",
@@ -303,11 +327,12 @@ def compose_up(
         raise RuntimeError(proc.stderr.strip() or "Failed to start DefectDojo")
 
     if wait:
-        wait_for_ui(port, timeout=300)
+        wait_for_ui(actual_port, timeout=300)
 
     if open_browser:
-        open_ui(port)
-    return env
+        open_ui(actual_port)
+
+    return env, actual_port, actual_tls_port
 
 
 def compose_down(*, compose_root: Path, project_name: str) -> None:

@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from . import dojo, manifest
-from .config import ConfigOverrides, DojoSettings, PolicySettings, load_config
+from .config import DEFAULT_SCANNERS, ConfigOverrides, DojoSettings, PolicySettings, load_config
 from .dojo_import import DojoConfig, import_results_to_dojo
 from .output import (
     VERSION,
@@ -341,6 +341,41 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Exclude remediation timeline section",
     )
 
+    # Upload subcommand - upload scan results to DefectDojo
+    upload_parser = subparsers.add_parser("upload", help="upload scan results to DefectDojo")
+    upload_parser.add_argument(
+        "--run-id",
+        type=str,
+        help="Run ID to upload (default: latest run)",
+    )
+    upload_parser.add_argument(
+        "--input",
+        type=str,
+        help="Path to specific results file to upload",
+    )
+    upload_parser.add_argument(
+        "--dojo-url",
+        type=str,
+        help="DefectDojo base URL (default: http://localhost:8080)",
+    )
+    upload_parser.add_argument(
+        "--dojo-api-key",
+        type=str,
+        help="DefectDojo API key (or set KEKKAI_DOJO_API_KEY env var)",
+    )
+    upload_parser.add_argument(
+        "--product",
+        type=str,
+        default="Kekkai Scans",
+        help="DefectDojo product name",
+    )
+    upload_parser.add_argument(
+        "--engagement",
+        type=str,
+        default="Default Engagement",
+        help="DefectDojo engagement name",
+    )
+
     parsed = parser.parse_args(args)
     if parsed.command == "init":
         return _command_init(parsed.config, parsed.force)
@@ -377,6 +412,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _command_fix(parsed)
     if parsed.command == "report":
         return _command_report(parsed)
+    if parsed.command == "upload":
+        return _command_upload(parsed)
 
     parser.print_help()
     return 1
@@ -617,7 +654,7 @@ def _resolve_scanners(override: str | None, config_scanners: list[str] | None) -
         return [s.strip() for s in override.split(",") if s.strip()]
     if config_scanners:
         return config_scanners
-    return []
+    return list(DEFAULT_SCANNERS)
 
 
 def _resolve_policy_config(
@@ -877,23 +914,34 @@ def _command_dojo(parsed: argparse.Namespace) -> int:
     project_name = _resolve_dojo_project_name(parsed)
 
     if parsed.dojo_command == "up":
-        port = _resolve_dojo_port(parsed)
-        tls_port = _resolve_dojo_tls_port(parsed, port)
+        requested_port = _resolve_dojo_port(parsed)
+        requested_tls_port = _resolve_dojo_tls_port(parsed, requested_port)
         try:
-            env = dojo.compose_up(
+            env, actual_port, actual_tls_port = dojo.compose_up(
                 compose_root=compose_root,
                 project_name=project_name,
-                port=port,
-                tls_port=tls_port,
+                port=requested_port,
+                tls_port=requested_tls_port,
                 wait=bool(parsed.wait),
                 open_browser=bool(parsed.open),
             )
         except RuntimeError as exc:
             print(str(exc))
             return 1
-        print(f"DefectDojo is starting at http://localhost:{port}/")
-        print(f"Admin user: {env.get('DD_ADMIN_USER', 'admin')}")
-        print("Admin password stored in .env")
+
+        # Warn if port was changed due to conflict
+        if actual_port != requested_port:
+            console.print(
+                f"[warning]Port {requested_port} was in use, using {actual_port} instead[/warning]"
+            )
+
+        console.print(
+            f"\n[bold cyan]DefectDojo is ready at[/bold cyan] http://localhost:{actual_port}/"
+        )
+        console.print("\n[bold]Login credentials:[/bold]")
+        console.print(f"  Username: {env.get('DD_ADMIN_USER', 'admin')}")
+        console.print(f"  Password: {env.get('DD_ADMIN_PASSWORD', '(see .env)')}")
+        console.print(f"\nCredentials saved to: {compose_root / '.env'}")
         return 0
 
     if parsed.dojo_command == "down":
@@ -1280,6 +1328,183 @@ def _command_report(parsed: argparse.Namespace) -> int:
             console.print(f"  - {w}")
 
     return 0
+
+
+def _command_upload(parsed: argparse.Namespace) -> int:
+    """Upload scan results to DefectDojo."""
+    import json as _json
+
+    # Resolve DefectDojo configuration
+    dojo_url = (
+        getattr(parsed, "dojo_url", None)
+        or os.environ.get("KEKKAI_DOJO_URL")
+        or "http://localhost:8080"
+    )
+    dojo_api_key = getattr(parsed, "dojo_api_key", None) or os.environ.get("KEKKAI_DOJO_API_KEY")
+
+    if not dojo_api_key:
+        # Try to read from local dojo .env file
+        dojo_env_path = app_base_dir() / "dojo" / ".env"
+        if dojo_env_path.exists():
+            env_data = dojo.load_env_file(dojo_env_path)
+            dojo_api_key = env_data.get("DD_API_KEY")
+
+    if not dojo_api_key:
+        console.print("[danger]Error:[/danger] DefectDojo API key required")
+        console.print("  Set --dojo-api-key or KEKKAI_DOJO_API_KEY environment variable")
+        console.print("  Or run 'kekkai dojo up' to start local DefectDojo first")
+        return 1
+
+    product_name = getattr(parsed, "product", "Kekkai Scans")
+    engagement_name = getattr(parsed, "engagement", "Default Engagement")
+
+    # Resolve input - either specific file or find latest run
+    input_path_str = cast(str | None, getattr(parsed, "input", None))
+    run_id_override = cast(str | None, getattr(parsed, "run_id", None))
+
+    if input_path_str:
+        # Use specific input file
+        input_path = Path(input_path_str).expanduser().resolve()
+        if not input_path.exists():
+            console.print(f"[danger]Error:[/danger] Input file not found: {input_path}")
+            return 1
+        run_dir = input_path.parent
+        run_id = run_dir.name
+    else:
+        # Find latest run
+        runs_dir = app_base_dir() / "runs"
+        if not runs_dir.exists():
+            console.print("[danger]Error:[/danger] No scan runs found")
+            console.print("  Run 'kekkai scan' first to generate results")
+            return 1
+
+        if run_id_override:
+            run_dir = runs_dir / run_id_override
+            if not run_dir.exists():
+                console.print(f"[danger]Error:[/danger] Run not found: {run_id_override}")
+                return 1
+            run_id = run_id_override
+        else:
+            # Find most recent run
+            run_dirs = sorted(
+                [d for d in runs_dir.iterdir() if d.is_dir()],
+                key=lambda d: d.stat().st_mtime,
+                reverse=True,
+            )
+            if not run_dirs:
+                console.print("[danger]Error:[/danger] No scan runs found")
+                return 1
+            run_dir = run_dirs[0]
+            run_id = run_dir.name
+
+    console.print("\n[bold cyan]Kekkai Upload[/bold cyan] - DefectDojo Import")
+    console.print("=" * 45)
+    console.print(f"DefectDojo URL: {dojo_url}")
+    console.print(f"Run ID: {run_id}")
+    console.print(f"Product: {product_name}")
+    console.print(f"Engagement: {engagement_name}")
+
+    # Find and load scan results
+    scan_files = list(run_dir.glob("*.json"))
+    scan_files = [f for f in scan_files if f.name not in ("run.json", "policy-result.json")]
+
+    if not scan_files:
+        console.print(f"[danger]Error:[/danger] No scan results found in {run_dir}")
+        return 1
+
+    console.print(f"\nFound {len(scan_files)} result file(s)")
+
+    # Build scan results for import
+    scan_results: list[ScanResult] = []
+    scanners_map: dict[str, Scanner] = {}
+
+    for scan_file in scan_files:
+        scanner_name = scan_file.stem  # e.g., "trivy", "semgrep", "gitleaks"
+        console.print(f"  Loading {scanner_name}...")
+
+        try:
+            with scan_file.open() as f:
+                data = _json.load(f)
+        except _json.JSONDecodeError as e:
+            console.print(f"    [warning]Skipped (invalid JSON): {e}[/warning]")
+            continue
+
+        # Parse findings based on format
+        findings = _parse_findings_from_json(data)
+
+        if findings:
+            scan_results.append(
+                ScanResult(
+                    scanner=scanner_name,
+                    success=True,
+                    findings=findings,
+                    raw_output_path=scan_file,
+                    duration_ms=0,
+                )
+            )
+            # Create scanner instance for import
+            scanner = _create_scanner(scanner_name)
+            if scanner:
+                scanners_map[scanner_name] = scanner
+
+            console.print(f"    {len(findings)} findings")
+
+    if not scan_results:
+        console.print("[danger]Error:[/danger] No valid scan results to upload")
+        return 1
+
+    # Import to DefectDojo
+    console.print("\nUploading to DefectDojo...")
+
+    dojo_cfg = DojoConfig(
+        base_url=dojo_url,
+        api_key=dojo_api_key,
+        product_name=product_name,
+        engagement_name=engagement_name,
+    )
+
+    # Get commit SHA from run manifest if available
+    commit_sha: str | None = None
+    manifest_path = run_dir / "run.json"
+    if manifest_path.exists():
+        try:
+            with manifest_path.open() as f:
+                manifest_data = _json.load(f)
+            commit_sha = manifest_data.get("commit_sha")
+        except (OSError, _json.JSONDecodeError):
+            pass
+
+    import_results = import_results_to_dojo(
+        config=dojo_cfg,
+        results=scan_results,
+        scanners=scanners_map,
+        run_id=run_id,
+        commit_sha=commit_sha,
+    )
+
+    success_count = 0
+    scanner_names_list = list(scanners_map.keys())
+    for idx, ir in enumerate(import_results):
+        scanner_label = (
+            scanner_names_list[idx] if idx < len(scanner_names_list) else f"scanner-{idx}"
+        )
+        if ir.success:
+            success_count += 1
+            console.print(
+                f"  [success]{scanner_label}:[/success] {ir.findings_created} created, "
+                f"{ir.findings_closed} closed"
+            )
+        else:
+            err = sanitize_error(ir.error or "Unknown error")
+            console.print(f"  [danger]{scanner_label} failed:[/danger] {err}")
+
+    if success_count > 0:
+        console.print(f"\n[success]Upload complete![/success] {success_count} scanner(s) imported")
+        console.print(f"View results at: {dojo_url}")
+        return 0
+    else:
+        console.print("\n[danger]Upload failed[/danger]")
+        return 1
 
 
 def _parse_findings_from_json(data: dict[str, Any] | list[Any]) -> list[Finding]:
