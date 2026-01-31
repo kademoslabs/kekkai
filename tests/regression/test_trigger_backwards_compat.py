@@ -63,8 +63,19 @@ class TestBackwardsCompatibility:
             assert extracted_v == version
             assert extracted_no_v == version
 
-    def test_circleci_release_workflow_unchanged(self) -> None:
-        """Verify CircleCI CI workflow still functions."""
+    def test_circleci_workflows_branch_only(self) -> None:
+        """Verify CircleCI runs on branches only, not tags (v1.1.0+ architecture).
+
+        As of v1.1.0, CircleCI no longer runs release workflows on tag pushes
+        to prevent duplication. GitHub Actions handles all releases:
+        - PyPI publishing (release-slsa.yml)
+        - Docker publishing (docker-publish.yml)
+        - Distribution triggers (trigger-distributions.yml)
+
+        CircleCI workflows:
+        - develop branch: test_quick (fast checks)
+        - main branch: test_full + build_verification
+        """
         circleci_config = Path(".circleci/config.yml")
 
         if not circleci_config.exists():
@@ -72,13 +83,19 @@ class TestBackwardsCompatibility:
 
         content = circleci_config.read_text()
 
-        # Verify key CI workflow elements (publish moved to GitHub Actions)
-        assert "test_full:" in content
-        assert "build_verification:" in content or "build_release:" in content
+        # Verify branch-based workflows exist
+        assert "develop:" in content, "develop workflow missing"
+        assert "main:" in content, "main workflow missing"
+        assert "test_full:" in content, "test_full job missing"
 
-        # Verify release workflow triggers on tags
-        assert "tags:" in content
-        assert "only: /^v.*/" in content or "only: /^v" in content
+        # Verify build verification exists (renamed from build_release)
+        assert "build_verification:" in content or "build_release:" in content, "build job missing"
+
+        # Verify release workflow is removed (GitHub Actions handles releases)
+        # The config should have a comment explaining the removal
+        assert (
+            "# Release workflow: REMOVED" in content or "release:" not in content
+        ), "Release workflow should be removed (GitHub Actions handles tag-based releases)"
 
 
 @pytest.mark.regression
