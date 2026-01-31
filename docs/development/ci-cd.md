@@ -74,25 +74,20 @@ This architecture ensures:
                  └─────────────────────┘
                             │
                             ▼
-                 ┌──────────────────────┐
-                 │    CircleCI Release  │
-                 │                      │
-                 │ • Full test suite    │
-                 │ • Build artifacts    │
-                 │ • Publish to GitHub  │
-                 │ • Create checksums   │
-                 └──────────────────────┘
-                            │
-                            ▼
                  ┌──────────────────────────────┐
-                 │  GitHub Actions              │
-                 │  Trigger Distributions       │
+                 │  GitHub Actions ONLY         │
+                 │  Release & Distributions     │
                  │                              │
+                 │ • PyPI publish (SLSA)        │
+                 │ • GitHub release creation    │
                  │ • Homebrew tap update        │
                  │ • Docker Hub publish         │
                  │ • Scoop bucket update        │
                  │ • Chocolatey package publish │
                  └──────────────────────────────┘
+                            │
+            Note: CircleCI does NOT run on tag pushes
+            (main branch already tested before tag)
 ```
 
 ---
@@ -186,6 +181,8 @@ Final status check for PR merging.
 
 **Jobs**:
 - `test_quick`: Fast checks (lint, type check, unit tests, security)
+  - **Note**: VSCode extension tests removed (requires X11/GTK libraries not available in Docker)
+  - VSCode tests run in GitHub Actions cross-platform workflow instead
 
 **Purpose**: Fast feedback for development
 
@@ -201,14 +198,15 @@ Final status check for PR merging.
 
 ### 3. Release Workflow
 
-**Trigger**: Tag push matching `v*.*.*`
+**Status**: **REMOVED** (as of v1.1.0+)
 
-**Jobs**:
-- `test_full`: Full test suite
-- `build_release`: Build artifacts + checksums + SBOM
-- `publish_release`: Publish to GitHub Releases
+**Rationale**:
+- Main branch already fully tested before tag creation
+- Eliminates duplication with GitHub Actions release pipeline
+- GitHub Actions handles all release publishing (PyPI, Docker, distributions)
 
-**Purpose**: Automated release deployment
+**Previous behavior**: Tag push would trigger full CircleCI pipeline + deployment
+**Current behavior**: Tag push only triggers GitHub Actions workflows
 
 **View**: `.circleci/config.yml`
 
@@ -227,9 +225,10 @@ Final status check for PR merging.
 - **Purpose**: Release-ready code
 
 ### Tags (v*.*.*)
-- **CircleCI**: Full pipeline + deployment
-- **GitHub Actions**: Distribution triggers (automatic)
+- **CircleCI**: ~~Full pipeline + deployment~~ **REMOVED** (no longer runs on tags)
+- **GitHub Actions**: Complete release pipeline (PyPI, GitHub release, distributions)
 - **Purpose**: Official releases
+- **Note**: Main branch is fully tested before tag creation, so no CircleCI duplication needed
 
 ---
 
@@ -245,8 +244,9 @@ Final status check for PR merging.
 | Windows-Specific | ❌ | ❌ | ✅ | ❌ |
 | Performance Benchmarks | ❌ | ✅ | ✅ | ✅ |
 | Docker Tests | ✅ | ✅ | ⚠️ Optional | ⚠️ Optional |
+| VSCode Extension Tests | ❌ | ✅ | ✅ | ✅ |
 | Build Artifacts | ✅ | ❌ | ❌ | ❌ |
-| Deployment | ✅ | ❌ | ❌ | ❌ |
+| Deployment | ❌ (GitHub Actions) | ✅ (on tags) | ❌ | ❌ |
 
 ---
 
