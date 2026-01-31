@@ -13,7 +13,6 @@ dependencies = [
 
 [project.scripts]
 kekkai = "kekkai.cli:main"
-kekkai-portal = "portal.web:main"
 
 [tool.ruff]
 target-version = "py312"
@@ -71,3 +70,4 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+exclude = ["portal*"]
