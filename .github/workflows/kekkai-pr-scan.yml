@@ -55,5 +55,7 @@ jobs:
       - name: Check Scan Status
         if: steps.scan.outcome == 'failure'
         run: |
-          echo "Security scan found policy violations"
+          echo "⚠️  Security scan found policy violations"
+          echo "Review the scan results artifact for details"
+          echo "To adjust policy thresholds, modify kekkai config or use --fail-on flag"
           exit 1

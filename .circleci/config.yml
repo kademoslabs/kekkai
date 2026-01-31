@@ -57,20 +57,9 @@ jobs:
           command: |
             . .venv/bin/activate
             make pipx-test
-      - run:
-          name: VS Code extension build
-          command: |
-            curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-            sudo apt-get install -y nodejs
-            make vscode-build
-      - run:
-          name: VS Code extension lint
-          command: |
-            make vscode-lint
-      - run:
-          name: VS Code extension tests
-          command: |
-            make vscode-test
+      # VS Code extension tests moved to GitHub Actions cross-platform workflow
+      # Reason: Requires X11/GTK libraries not available in CircleCI Docker containers
+      # See: .github/workflows/test-cross-platform.yml
 
   test_full:
     docker:
@@ -163,13 +152,8 @@ workflows:
             branches:
               only: main
 
-  # Release workflow: Tests only
-  # Actual publishing is handled by GitHub Actions (release-slsa.yml)
-  release:
-    jobs:
-      - test_full:
-          filters:
-            tags:
-              only: /^v.*/
-            branches:
-              ignore: /.*/
+  # Release workflow: REMOVED
+  # CircleCI no longer runs on tag pushes to avoid duplication
+  # Reason: Main branch already tested before tag creation
+  # GitHub Actions handles all release publishing (release-slsa.yml, docker-publish.yml)
+  # Workflow: develop → main (full tests) → tag push → GitHub Actions only
