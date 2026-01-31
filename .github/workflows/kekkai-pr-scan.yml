@@ -1,4 +1,21 @@
-name: Kekkai Security Scan
+name: Kekkai Security Scan (Template)
+
+# ═══════════════════════════════════════════════════════════════
+# This workflow is a TEMPLATE for end users, NOT for kekkai repo
+# ═══════════════════════════════════════════════════════════════
+#
+# This file provides an example of how to integrate Kekkai security
+# scanning into your repository's CI/CD pipeline.
+#
+# To use in your own repository:
+#   1. Copy this file to your .github/workflows/ directory
+#   2. Remove the "if: github.repository != 'kademoslabs/kekkai'" line below
+#   3. Customize scan parameters for your needs:
+#      - Adjust --fail-on severity levels
+#      - Add --exclude patterns for vendor code
+#      - Modify --max-comments limit
+#
+# See: https://github.com/kademoslabs/kekkai/blob/main/docs/ci/ci-integration.md
 
 on:
   pull_request:
@@ -10,6 +27,9 @@ permissions:
 
 jobs:
   scan:
+    # ⚠️  TEMPLATE GUARD: Remove this line when copying to your repo
+    if: github.repository != 'kademoslabs/kekkai'
+
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
