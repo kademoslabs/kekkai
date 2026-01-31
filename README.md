@@ -17,7 +17,7 @@
 
 Stop juggling security tools. **Kekkai orchestrates your entire AppSec lifecycle** — from AI-powered threat modeling to vulnerability management — in a single CLI.
 
-![Hero GIF](https://raw.githubusercontent.com/kademoslabs/assets/main/screenshots/kekkai-demo.gif)
+![Hero GIF](https://raw.githubusercontent.com/kademoslabs/assets/main/screenshots/kekkai-start.gif)
 
 ---
 
@@ -93,6 +93,8 @@ kekkai upload
 
 Generate STRIDE-aligned threat models and Mermaid.js Data Flow Diagrams from your codebase.
 
+![Hero GIF](https://raw.githubusercontent.com/kademoslabs/assets/main/screenshots/kekkai-threatflow.gif)
+
 ```bash
 # Ollama (recommended - easy setup, privacy-preserving)
 ollama pull mistral
@@ -166,6 +168,10 @@ kekkai triage
 
 Automate security enforcement in your pipelines.
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/kademoslabs/assets/main/screenshots/kekkai-scan.png" alt="Kekkai Scanning" width="650"/>
+</p>
+
 ```bash
 # Fail on any critical or high findings
 kekkai scan --ci --fail-on high
@@ -201,6 +207,10 @@ kekkai scan --ci --fail-on medium --max-findings 5
 
 Spin up a complete vulnerability management platform locally.
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/kademoslabs/assets/main/screenshots/kekkai-dojo.png" alt="Kekkai Dojo" width="650"/>
+</p>
+
 ```bash
 kekkai dojo up --wait    # Start DefectDojo (Nginx, Postgres, Redis, Celery)
 kekkai dojo status       # Check service health
@@ -213,6 +223,14 @@ kekkai dojo down         # Stop and clean up (removes volumes)
 - Automatic credential generation
 - Pre-configured for Kekkai imports
 - Clean teardown (no orphaned volumes)
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/kademoslabs/assets/main/screenshots/Active-Engagements-kekkai-dojo.png" alt="Kekkai Dojo" width="850"/>
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/kademoslabs/assets/main/screenshots/kekkai-dojo-dashboard-findings.png" alt="Kekkai Dojo" width="850"/>
+</p
 
 [Full Dojo Documentation →](docs/dojo/dojo.md)
 
