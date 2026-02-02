@@ -49,6 +49,7 @@ class FindingListScreen(Screen[None]):
         Binding("down", "cursor_down", "Next", show=False),
         Binding("up", "cursor_up", "Previous", show=False),
         Binding("enter", "view_detail", "View"),
+        Binding("x", "fix_with_ai", "🤖 Fix with AI"),
         Binding("f", "mark_false_positive", "False Positive"),
         Binding("c", "mark_confirmed", "Confirmed"),
         Binding("d", "mark_deferred", "Deferred"),

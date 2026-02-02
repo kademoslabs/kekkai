@@ -101,7 +101,7 @@ kekkai threatflow --repo . --model-mode ollama --model-name mistral
 - Local GGUF models (llama.cpp)
 - OpenAI/Anthropic (if you trust them with your code)
 
-[Full ThreatFlow Documentation →](docs/threatflow/README.md)
+[Full Local-First AI Threat Modeling Documentation →](docs/threatflow/README.md)
 
 ---
 
@@ -173,44 +173,6 @@ kekkai scan --pr-comment
 
 ---
 
-## Installation
-
-### pipx (Recommended)
-
-Isolated environment, no conflicts with system Python.
-
-```bash
-pipx install kekkai-cli
-```
-
-### Homebrew (macOS/Linux)
-
-```bash
-brew install kademoslabs/tap/kekkai
-```
-
-### Scoop (Windows)
-
-```bash
-scoop bucket add kademoslabs https://github.com/kademoslabs/scoop-bucket
-scoop install kekkai
-```
-
-### Docker (No Python Required)
-
-```bash
-docker pull kademoslabs/kekkai:latest
-alias kekkai='docker run --rm -v "$(pwd):/repo" kademoslabs/kekkai:latest'
-```
-
-### pip (Traditional)
-
-```bash
-pip install kekkai-cli
-```
-
----
-
 ## Advanced Features (Optional)
 
 ### DefectDojo Integration
@@ -257,7 +219,7 @@ Kekkai is designed with security as a core principle:
 
 - **Container Isolation**: Scanners run in hardened Docker containers
 - **No Network Access**: Containers cannot reach external networks
-- **Local-First AI**: ThreatFlow can run entirely on your machine
+- **Local-First AI**: run entirely on your machine
 - **SLSA Level 3**: Release artifacts include provenance attestations
 - **Signed Images**: Docker images are Cosign-signed
 
@@ -275,16 +237,6 @@ For vulnerability reports, see [SECURITY.md](SECURITY.md).
 | [CI Mode](docs/ci/ci-mode.md) | Pipeline integration |
 | [DefectDojo](docs/dojo/dojo-quickstart.md) | Optional vulnerability management |
 | [Security](docs/security/slsa-provenance.md) | SLSA provenance verification |
-
----
-
-## CI/CD Status
-
-[![Kekkai Security Scan](https://github.com/kademoslabs/kekkai/actions/workflows/kekkai-pr-scan.yml/badge.svg)](https://github.com/kademoslabs/kekkai/actions/workflows/kekkai-pr-scan.yml)
-[![Docker Image Publish](https://github.com/kademoslabs/kekkai/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/kademoslabs/kekkai/actions/workflows/docker-publish.yml)
-[![Docker Security Scan](https://github.com/kademoslabs/kekkai/actions/workflows/docker-security-scan.yml/badge.svg)](https://github.com/kademoslabs/kekkai/actions/workflows/docker-security-scan.yml)
-[![Cross-Platform Tests](https://github.com/kademoslabs/kekkai/actions/workflows/test-cross-platform.yml/badge.svg)](https://github.com/kademoslabs/kekkai/actions/workflows/test-cross-platform.yml)
-[![Release with SLSA Provenance](https://github.com/kademoslabs/kekkai/actions/workflows/release-slsa.yml/badge.svg)](https://github.com/kademoslabs/kekkai/actions/workflows/release-slsa.yml)
 
 ---
 

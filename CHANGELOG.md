@@ -15,20 +15,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Hidden `kekkai dojo` from help menu and dashboard (still functional via direct invocation)
 - De-emphasized DefectDojo integration (now positioned as optional advanced feature)
 
+### Added - Distribution Features
+- **Pre-commit hooks** (`.pre-commit-hooks.yaml`): Viral team-wide adoption
+  - `kekkai-scan`: Default hook (fail on high/critical)
+  - `kekkai-scan-strict`: Stricter hook (fail on medium+)
+  - `kekkai-secrets`: Fast secrets-only check with Gitleaks
+  - One developer adds it, whole team gets protected automatically
+- **`kekkai init --ci`**: Auto-generate GitHub Actions workflow
+  - Detects if in Git repository
+  - Creates `.github/workflows/kekkai-security.yml` automatically
+  - Eliminates YAML writing friction for CI/CD setup
+  - Includes PR comments and artifact uploads
+- **TUI "Fix with AI" feature** (hotkey: `x`):
+  - AI-powered fix generation directly from triage screen
+  - Detects Ollama for local-first fixes (no API keys needed)
+  - Shows model configuration and fix preview
+  - Emphasizes privacy: "No data leaves your machine" with Ollama
+
 ### Removed
 - `docs/portal/` directory and all enterprise feature documentation
 - "Five Pillars" marketing framing from README
 - Enterprise feature comparison tables
+- Portal references from docs/README.md
 
 ### Changed
 - README.md completely rewritten with developer-first narrative
+- Pre-commit installation prominently featured (viral adoption strategy)
 - Emphasized TUI triage and local-first AI as hero features
 - pyproject.toml description updated to match new positioning
 
 ### Notes
-- **No functional code changes**: All CLI commands work identically
+- **No functional code changes** to existing commands: All CLI commands work identically
 - **No breaking API changes**: This is a documentation/positioning change only
 - Version bump to 2.0.0 follows SemVer: marketing repositioning is a major version change
+- Distribution features designed to make Kekkai spread organically
 
 ## [1.1.1] - 2026-02-02
 

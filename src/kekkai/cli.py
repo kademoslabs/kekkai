@@ -58,6 +58,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     init_parser = subparsers.add_parser("init", help="initialize config and directories")
     init_parser.add_argument("--config", type=str, help="Path to config file")
     init_parser.add_argument("--force", action="store_true", help="Overwrite existing config")
+    init_parser.add_argument(
+        "--ci",
+        action="store_true",
+        help="Auto-generate GitHub Actions workflow for CI/CD integration",
+    )
 
     scan_parser = subparsers.add_parser("scan", help="run a scan pipeline")
     scan_parser.add_argument("--config", type=str, help="Path to config file")
@@ -378,7 +383,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     parsed = parser.parse_args(args)
     if parsed.command == "init":
-        return _command_init(parsed.config, parsed.force)
+        return _command_init(parsed.config, parsed.force, parsed.ci)
     if parsed.command == "scan":
         return _command_scan(
             parsed.config,
@@ -427,7 +432,7 @@ def _handle_no_args() -> int:
     return 0
 
 
-def _command_init(config_override: str | None, force: bool) -> int:
+def _command_init(config_override: str | None, force: bool, ci: bool = False) -> int:
     cfg_path = _resolve_config_path(config_override)
     if cfg_path.exists() and not force:
         print(f"Config already exists at {cfg_path}. Use --force to overwrite.")
@@ -441,6 +446,27 @@ def _command_init(config_override: str | None, force: bool) -> int:
     cfg_path.write_text(load_config_text(base_dir))
     print_dashboard()
     console.print(f"\n[success]Initialized config at[/success] [cyan]{cfg_path}[/cyan]\n")
+
+    # Auto-generate GitHub Actions workflow if --ci flag is set
+    if ci:
+        workflow_created = _generate_github_workflow()
+        if workflow_created:
+            console.print(
+                "[success]✓[/success] Created GitHub Actions workflow: "
+                "[cyan].github/workflows/kekkai-security.yml[/cyan]"
+            )
+            console.print(
+                "\n[info]Next steps:[/info]\n"
+                "  1. Commit the workflow file:\n"
+                "     [dim]git add .github/workflows/kekkai-security.yml[/dim]\n"
+                "  2. Push to GitHub\n"
+                "  3. Security scans will run automatically on pull requests\n"
+            )
+        else:
+            console.print(
+                "[warning]⚠[/warning]  Not a Git repository or .github/workflows/ cannot be created"
+            )
+
     return 0
 
 
@@ -1750,6 +1776,91 @@ def _resolve_dojo_open_port(parsed: argparse.Namespace, compose_root: Path) -> i
     if env_port := os.environ.get("KEKKAI_DOJO_PORT"):
         return int(env_port)
     return dojo.DEFAULT_PORT
+
+
+def _generate_github_workflow() -> bool:
+    """Generate GitHub Actions workflow file for security scanning.
+
+    Returns:
+        True if workflow was created successfully, False otherwise.
+    """
+    # Check if we're in a git repository
+    cwd = Path.cwd()
+    git_dir = cwd / ".git"
+    if not git_dir.exists():
+        return False
+
+    # Create .github/workflows directory
+    workflows_dir = cwd / ".github" / "workflows"
+    try:
+        workflows_dir.mkdir(parents=True, exist_ok=True)
+    except (OSError, PermissionError):
+        return False
+
+    # Generate workflow file
+    workflow_path = workflows_dir / "kekkai-security.yml"
+    if workflow_path.exists():
+        # Don't overwrite existing workflow
+        return False
+
+    workflow_content = """name: Kekkai Security Scan
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches:
+      - main
+      - develop
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Kekkai
+        run: |
+          python -m pip install --upgrade pip
+          pip install kekkai-cli
+
+      - name: Run Security Scan
+        run: |
+          kekkai scan --ci --fail-on high
+        continue-on-error: true
+
+      - name: Post PR Comments (if PR)
+        if: github.event_name == 'pull_request'
+        run: |
+          kekkai scan --pr-comment --max-comments 50
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Upload Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kekkai-scan-results
+          path: ~/.kekkai/runs/*/
+          retention-days: 30
+"""
+
+    try:
+        workflow_path.write_text(workflow_content, encoding="utf-8")
+        return True
+    except (OSError, PermissionError):
+        return False
 
 
 def _resolve_config_path(config_override: str | None) -> Path:
