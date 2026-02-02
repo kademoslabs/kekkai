@@ -290,24 +290,26 @@ pip install kekkai-cli
 
 ---
 
-## Enterprise Features — Kekkai Portal
+## Enterprise Features
 
-For teams that need centralized management, **Kekkai Portal** provides:
+For organizations that need advanced capabilities, **Kekkai Enterprise** provides:
 
 | Feature | Description |
 |---------|-------------|
-| **SAML 2.0 SSO** | Integrate with Okta, Azure AD, Google Workspace ([Setup Guide](docs/portal/saml-setup.md)) |
-| **Role-Based Access Control** | Fine-grained permissions per team/project ([RBAC Guide](docs/portal/rbac.md)) |
-| **Multi-Tenant Architecture** | Isolated environments per organization ([Architecture](docs/portal/multi-tenant.md)) |
-| **Aggregated Dashboards** | Centralized view of all CLI scan results |
+| **Multi-Tenant Portal** | Web dashboard for managing multiple teams/projects ([Learn More](docs/portal/README.md)) |
+| **SAML 2.0 SSO** | Integrate with Okta, Azure AD, Google Workspace |
+| **Role-Based Access Control** | Fine-grained permissions per team/project |
+| **Advanced Operations** | Automated backup/restore, monitoring, zero-downtime upgrades ([Learn More](docs/ops/README.md)) |
+| **Compliance Reporting** | Map findings to OWASP, PCI-DSS, HIPAA, SOC 2 |
 | **Audit Logging** | Cryptographically signed compliance trails |
 
-**Upgrade Path:**
-- CLI users can sync results to Portal: `kekkai upload` ([Sync Guide](docs/portal/cli-sync.md))
-- Portal provides dashboards for security managers
-- Self-hosted or Kademos-managed options ([Deployment Guide](docs/portal/deployment.md))
+**Architecture:**
+- Open-source CLI remains fully functional standalone
+- Enterprise features available in separate private repository for licensed customers
+- Optional integration: CLI can sync results to enterprise portal
+- Self-hosted or Kademos-managed deployment options
 
-[Contact us for Portal access →](mailto:sales@kademos.org)
+[Contact us for enterprise access →](mailto:sales@kademos.org)
 
 ---
 
