@@ -81,3 +81,33 @@ class TestDojoClientIntegration:
 
         assert not result.success
         assert "No raw output file" in (result.error or "")
+
+    @patch("kekkai.dojo_import.urlopen")
+    def test_request_empty_response(self, mock_urlopen: MagicMock) -> None:
+        """Test that empty response doesn't crash (ASVS compliance)."""
+        mock_response = MagicMock()
+        mock_response.read.return_value = b""
+        mock_response.__enter__ = MagicMock(return_value=mock_response)
+        mock_response.__exit__ = MagicMock(return_value=False)
+        mock_urlopen.return_value = mock_response
+
+        cfg = DojoConfig(base_url="http://test", api_key="test")
+        client = DojoClient(cfg)
+
+        result = client._request("GET", "test/")
+        assert result == {}  # Should return empty dict, not crash
+
+    @patch("kekkai.dojo_import.urlopen")
+    def test_request_invalid_json_response(self, mock_urlopen: MagicMock) -> None:
+        """Test that invalid JSON response doesn't crash."""
+        mock_response = MagicMock()
+        mock_response.read.return_value = b"not valid json"
+        mock_response.__enter__ = MagicMock(return_value=mock_response)
+        mock_response.__exit__ = MagicMock(return_value=False)
+        mock_urlopen.return_value = mock_response
+
+        cfg = DojoConfig(base_url="http://test", api_key="test")
+        client = DojoClient(cfg)
+
+        result = client._request("GET", "test/")
+        assert result == {}  # Should return empty dict on JSON decode error

@@ -4,9 +4,18 @@ Provides a terminal-based interface for reviewing findings,
 marking false positives, and generating .kekkaiignore files.
 """
 
-from .app import TriageApp, run_triage
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from pathlib import Path
+
+# Import models and utilities (no heavy dependencies)
 from .audit import AuditEntry, TriageAuditLog, log_decisions
 from .ignore import IgnoreEntry, IgnoreFile, IgnorePatternValidator, ValidationError
+from .loader import load_findings_from_path
 from .models import (
     FindingEntry,
     Severity,
@@ -14,6 +23,49 @@ from .models import (
     TriageState,
     load_findings_from_json,
 )
+
+
+def run_triage(
+    input_path: Path | None = None,
+    output_path: Path | None = None,
+    findings: Sequence[FindingEntry] | None = None,
+) -> int:
+    """Run the triage TUI (lazy import).
+
+    Args:
+        input_path: Path to findings JSON file.
+        output_path: Path for .kekkaiignore output.
+        findings: Pre-loaded findings (alternative to input_path).
+
+    Returns:
+        Exit code (0 for success).
+
+    Raises:
+        RuntimeError: If Textual is not installed.
+    """
+    try:
+        from .app import run_triage as _run_triage
+
+        return _run_triage(
+            input_path=input_path,
+            output_path=output_path,
+            findings=findings,
+        )
+    except ImportError as e:
+        raise RuntimeError(
+            "Triage TUI requires 'textual'. Install with: pip install textual"
+        ) from e
+
+
+# Re-export TriageApp for compatibility (lazy)
+def __getattr__(name: str) -> type:
+    """Lazy import for TriageApp."""
+    if name == "TriageApp":
+        from .app import TriageApp
+
+        return TriageApp
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "TriageApp",
@@ -30,4 +82,5 @@ __all__ = [
     "TriageState",
     "Severity",
     "load_findings_from_json",
+    "load_findings_from_path",
 ]

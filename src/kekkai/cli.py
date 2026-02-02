@@ -822,6 +822,26 @@ def _resolve_github_repo(override: str | None) -> tuple[str | None, str | None]:
     return None, None
 
 
+def _normalize_scanner_name(stem: str) -> str:
+    """Normalize filename stem to scanner name.
+
+    Strips the "-results" suffix from scanner output filenames.
+
+    Examples:
+        gitleaks-results -> gitleaks
+        trivy-results -> trivy
+        semgrep-results -> semgrep
+        custom-scanner -> custom-scanner
+
+    Args:
+        stem: File stem (name without extension).
+
+    Returns:
+        Normalized scanner name.
+    """
+    return stem.removesuffix("-results")
+
+
 def _create_scanner(
     name: str,
     zap_target_url: str | None = None,
@@ -1106,22 +1126,57 @@ def _threatflow_banner() -> str:
 def _command_triage(parsed: argparse.Namespace) -> int:
     """Run interactive triage TUI."""
     from .triage import run_triage
+    from .triage.loader import load_findings_from_path
 
     input_path_str = cast(str | None, getattr(parsed, "input", None))
     output_path_str = cast(str | None, getattr(parsed, "output", None))
 
-    input_path = Path(input_path_str).expanduser().resolve() if input_path_str else None
-    output_path = Path(output_path_str).expanduser().resolve() if output_path_str else None
+    # Default to latest run if no input specified
+    if not input_path_str:
+        runs_dir = app_base_dir() / "runs"
+        if runs_dir.exists():
+            run_dirs = sorted(
+                [d for d in runs_dir.iterdir() if d.is_dir()],
+                key=lambda d: d.stat().st_mtime,
+            )
+            if run_dirs:
+                input_path = run_dirs[-1]
+                console.print(f"[info]Using latest run: {input_path.name}[/info]\n")
+            else:
+                console.print("[danger]No scan runs found. Run 'kekkai scan' first.[/danger]")
+                return 1
+        else:
+            console.print("[danger]No scan runs found. Run 'kekkai scan' first.[/danger]")
+            return 1
+    else:
+        input_path = Path(input_path_str).expanduser().resolve()
 
-    if input_path and not input_path.exists():
-        console.print(f"[danger]Error:[/danger] Input file not found: {input_path}")
+    if not input_path.exists():
+        console.print(f"[danger]Error:[/danger] Input not found: {input_path}")
         return 1
+
+    output_path = Path(output_path_str).expanduser().resolve() if output_path_str else None
 
     console.print("[bold cyan]Kekkai Triage[/bold cyan] - Interactive Finding Review")
     console.print("Use j/k to navigate, f=false positive, c=confirmed, d=deferred")
     console.print("Press Ctrl+S to save, q to quit\n")
 
-    return run_triage(input_path=input_path, output_path=output_path)
+    # Use new loader that supports raw scanner outputs
+    findings, errors = load_findings_from_path(input_path)
+
+    if errors:
+        console.print("[warning]Warnings:[/warning]")
+        for err in errors[:5]:  # Limit to first 5
+            console.print(f"  - {err}")
+        console.print()
+
+    if not findings:
+        console.print("[warning]No findings to triage.[/warning]")
+        return 0
+
+    console.print(f"[info]Loaded {len(findings)} finding(s)[/info]\n")
+
+    return run_triage(findings=findings, output_path=output_path)
 
 
 def _command_fix(parsed: argparse.Namespace) -> int:
@@ -1414,9 +1469,13 @@ def _command_upload(parsed: argparse.Namespace) -> int:
     console.print(f"Product: {product_name}")
     console.print(f"Engagement: {engagement_name}")
 
-    # Find and load scan results
-    scan_files = list(run_dir.glob("*.json"))
-    scan_files = [f for f in scan_files if f.name not in ("run.json", "policy-result.json")]
+    # Find and load scan results - prefer *-results.json first
+    scan_files = sorted(run_dir.glob("*-results.json"))
+    if not scan_files:
+        # Fallback to all JSON (excluding metadata files)
+        scan_files = sorted(
+            [f for f in run_dir.glob("*.json") if f.name not in ("run.json", "policy-result.json")]
+        )
 
     if not scan_files:
         console.print(f"[danger]Error:[/danger] No scan results found in {run_dir}")
@@ -1429,35 +1488,39 @@ def _command_upload(parsed: argparse.Namespace) -> int:
     scanners_map: dict[str, Scanner] = {}
 
     for scan_file in scan_files:
-        scanner_name = scan_file.stem  # e.g., "trivy", "semgrep", "gitleaks"
+        # Normalize scanner name: "gitleaks-results" -> "gitleaks"
+        scanner_name = _normalize_scanner_name(scan_file.stem)
         console.print(f"  Loading {scanner_name}...")
 
+        # Load raw JSON
         try:
-            with scan_file.open() as f:
-                data = _json.load(f)
-        except _json.JSONDecodeError as e:
+            raw_text = scan_file.read_text(encoding="utf-8")
+            _json.loads(raw_text)  # Validate JSON syntax
+        except (OSError, _json.JSONDecodeError) as e:
             console.print(f"    [warning]Skipped (invalid JSON): {e}[/warning]")
             continue
 
-        # Parse findings based on format
-        findings = _parse_findings_from_json(data)
+        # Create scanner and use canonical parser
+        scanner = _create_scanner(scanner_name)
+        if not scanner:
+            console.print("    [warning]Skipped (unknown scanner)[/warning]")
+            continue
 
-        if findings:
-            scan_results.append(
-                ScanResult(
-                    scanner=scanner_name,
-                    success=True,
-                    findings=findings,
-                    raw_output_path=scan_file,
-                    duration_ms=0,
-                )
+        # Use canonical scanner parser (reuses validated logic)
+        findings = scanner.parse(raw_text)
+
+        scan_results.append(
+            ScanResult(
+                scanner=scanner.name,  # Use canonical scanner name
+                success=True,
+                findings=findings,
+                raw_output_path=scan_file,
+                duration_ms=0,
             )
-            # Create scanner instance for import
-            scanner = _create_scanner(scanner_name)
-            if scanner:
-                scanners_map[scanner_name] = scanner
+        )
+        scanners_map[scanner.name] = scanner
 
-            console.print(f"    {len(findings)} findings")
+        console.print(f"    {len(findings)} finding(s)")
 
     if not scan_results:
         console.print("[danger]Error:[/danger] No valid scan results to upload")
@@ -1493,11 +1556,9 @@ def _command_upload(parsed: argparse.Namespace) -> int:
     )
 
     success_count = 0
-    scanner_names_list = list(scanners_map.keys())
     for idx, ir in enumerate(import_results):
-        scanner_label = (
-            scanner_names_list[idx] if idx < len(scanner_names_list) else f"scanner-{idx}"
-        )
+        # Label based on actual scan_results order (not scanners_map keys)
+        scanner_label = scan_results[idx].scanner if idx < len(scan_results) else f"scanner-{idx}"
         if ir.success:
             success_count += 1
             console.print(
