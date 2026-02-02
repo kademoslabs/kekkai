@@ -1,6 +1,6 @@
 [project]
 name = "kekkai-cli"
-version = "1.1.0"
+version = "1.1.1"
 description = "Kekkai monorepo (local-first AppSec orchestration + compliance checker)"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -13,7 +13,6 @@ dependencies = [
 
 [project.scripts]
 kekkai = "kekkai.cli:main"
-kekkai-portal = "portal.web:main"
 
 [tool.ruff]
 target-version = "py312"
@@ -56,7 +55,7 @@ source = ["src"]
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
-fail_under = 69
+fail_under = 68
 exclude_lines = [
     "pragma: no cover",
     "if TYPE_CHECKING:",

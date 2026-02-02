@@ -5,6 +5,33 @@ All notable changes to Kekkai will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [1.1.1] - 2026-02-02
+
+### Fixed
+- **Triage:** Fixed blank screen when loading raw scanner outputs (Semgrep/Trivy/Gitleaks JSON)
+- **Triage:** Added automatic default to latest run directory when `--input` is omitted
+- **Upload:** Fixed "Unknown scanner" errors for `*-results.json` files (gitleaks-results, trivy-results, semgrep-results)
+- **Upload:** Now uses canonical scanner parsers (eliminates duplicate parsing logic)
+- **Upload:** Fixed scanner name mapping for DefectDojo imports (correct scan types now sent)
+- **Dojo API:** Fixed potential crash on empty/204 responses (proper response.read() handling)
+- **Triage Models:** Made importable without Textual dependency (lazy import for TUI)
+
+### Added
+- **Triage:** New `load_findings_from_path()` loader supporting multiple input formats:
+  - Native triage JSON (list or `{"findings": [...]}`)
+  - Raw scanner outputs (Semgrep, Trivy, Gitleaks)
+  - Run directories (aggregates all `*-results.json` files)
+- **Security:** Added file size limits (200MB max) to prevent DoS attacks (ASVS V10.3.3)
+- **Security:** Enhanced error message sanitization to prevent path disclosure (ASVS V7.4.1)
+- **Report:** Added unified report generation command for scan results
+
+### Changed
+- **Upload:** Scanner file discovery now prefers `*-results.json` over generic `*.json`
+- **Upload:** Scanner name normalization: `gitleaks-results` → `gitleaks`
+- **Triage:** Findings are now deduplicated by `scanner:rule_id:file_path:line`
+
 ## [1.0.5] - 2026-01-28
 
 ### Fixed
@@ -117,4 +144,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.1.1]: https://github.com/kademoslabs/kekkai/releases/tag/v1.1.1
+[1.1.0]: https://github.com/kademoslabs/kekkai/releases/tag/v1.1.0
+[1.0.5]: https://github.com/kademoslabs/kekkai/releases/tag/v1.0.5
+[1.0.4]: https://github.com/kademoslabs/kekkai/releases/tag/v1.0.4
+[1.0.3]: https://github.com/kademoslabs/kekkai/releases/tag/v1.0.3
+[1.0.2]: https://github.com/kademoslabs/kekkai/releases/tag/v1.0.2
+[1.0.1]: https://github.com/kademoslabs/kekkai/releases/tag/v1.0.1
 [1.0.0]: https://github.com/kademoslabs/kekkai/releases/tag/v1.0.0
