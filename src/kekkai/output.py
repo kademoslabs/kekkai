@@ -57,7 +57,7 @@ BANNER_ASCII = r"""
 /_/\_\\___/_/\_/_/\_\\_,_/_/
 """
 
-VERSION = "1.1.1"
+VERSION = "2.0.0"
 
 
 def print_dashboard() -> None:
@@ -88,9 +88,8 @@ def print_dashboard() -> None:
     menu_table.add_column("Description", style="desc", ratio=3)
 
     menu_table.add_row("kekkai scan", "Run security scan in current directory")
-    menu_table.add_row("kekkai threatflow", "Generate AI-powered threat model")
-    menu_table.add_row("kekkai dojo", "Manage local DefectDojo instance")
     menu_table.add_row("kekkai triage", "Interactive finding review (TUI)")
+    menu_table.add_row("kekkai threatflow", "Generate AI-powered threat model")
     menu_table.add_row("kekkai report", "Generate compliance reports")
     menu_table.add_row("kekkai config", "Manage settings and keys")
 

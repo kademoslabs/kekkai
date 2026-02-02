@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-02-02
+
+### BREAKING
+- Pivot to developer tool positioning: "The lazy developer's security scanner"
+- Removed enterprise marketing (SAML/SSO/RBAC claims for features that don't exist)
+- Hidden `kekkai dojo` from help menu and dashboard (still functional via direct invocation)
+- De-emphasized DefectDojo integration (now positioned as optional advanced feature)
+
+### Removed
+- `docs/portal/` directory and all enterprise feature documentation
+- "Five Pillars" marketing framing from README
+- Enterprise feature comparison tables
+
+### Changed
+- README.md completely rewritten with developer-first narrative
+- Emphasized TUI triage and local-first AI as hero features
+- pyproject.toml description updated to match new positioning
+
+### Notes
+- **No functional code changes**: All CLI commands work identically
+- **No breaking API changes**: This is a documentation/positioning change only
+- Version bump to 2.0.0 follows SemVer: marketing repositioning is a major version change
+
 ## [1.1.1] - 2026-02-02
 
 ### Fixed

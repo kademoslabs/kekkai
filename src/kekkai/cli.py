@@ -147,7 +147,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Minimum severity for PR comments (default: medium)",
     )
 
-    dojo_parser = subparsers.add_parser("dojo", help="manage local DefectDojo stack")
+    dojo_parser = subparsers.add_parser("dojo", help=argparse.SUPPRESS)
     dojo_subparsers = dojo_parser.add_subparsers(dest="dojo_command")
 
     dojo_up = dojo_subparsers.add_parser("up", help="start the local DefectDojo stack")
