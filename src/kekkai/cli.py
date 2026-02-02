@@ -604,6 +604,36 @@ def _command_scan(
     )
     manifest.write_manifest(run_dir / "run.json", run_manifest)
 
+    # Generate unified report (aggregates all scanner findings)
+    if scan_results:
+        from .report.unified import UnifiedReportError, generate_unified_report
+
+        # Determine output path for unified report
+        if output_path:
+            # --output flag provided: use it for unified report
+            unified_report_path = Path(output_path).expanduser().resolve()
+            # Security: Validate path (ASVS V5.3.3)
+            if not is_within_base(base_dir, unified_report_path):
+                # Allow explicit paths outside base_dir, but warn
+                console.print(
+                    f"[warning]Writing outside kekkai home: {unified_report_path}[/warning]"
+                )
+        else:
+            # Default: save in run directory
+            unified_report_path = run_dir / "kekkai-report.json"
+
+        try:
+            generate_unified_report(
+                scan_results=scan_results,
+                output_path=unified_report_path,
+                run_id=run_id,
+                commit_sha=commit_sha,
+            )
+            console.print(f"[success]Unified report:[/success] {unified_report_path}")
+        except UnifiedReportError as e:
+            err_msg = sanitize_error(str(e))
+            console.print(f"[warning]Failed to generate unified report: {err_msg}[/warning]")
+
     # Collect all findings for policy evaluation
     all_findings: list[Finding] = []
     scan_errors: list[str] = []

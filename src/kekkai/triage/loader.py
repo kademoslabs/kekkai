@@ -34,9 +34,15 @@ def load_findings_from_path(
     """Load findings from file or directory.
 
     Supports:
+    - Unified report (kekkai-report.json) - PREFERRED
     - Native triage JSON (list or {"findings": [...]})
     - Raw scanner outputs (Semgrep/Trivy/Gitleaks)
     - Run directories (aggregates all *-results.json)
+
+    Priority:
+    1. kekkai-report.json (unified report)
+    2. *-results.json (individual scanner outputs)
+    3. Any other JSON files (excluding metadata)
 
     Args:
         path: Path to findings file or run directory.
@@ -49,13 +55,22 @@ def load_findings_from_path(
 
     # Determine input type
     if path.is_dir():
-        # Prefer canonical scan outputs first
-        files = sorted(path.glob("*-results.json"))
-        if not files:
-            # Fallback to all JSON (excluding metadata files)
-            files = sorted(
-                [p for p in path.glob("*.json") if p.name not in ("run.json", "policy-result.json")]
-            )
+        # Priority 1: Check for unified report first
+        unified_report = path / "kekkai-report.json"
+        if unified_report.exists():
+            files = [unified_report]
+        else:
+            # Priority 2: Prefer canonical scan outputs
+            files = sorted(path.glob("*-results.json"))
+            if not files:
+                # Priority 3: Fallback to all JSON (excluding metadata files)
+                files = sorted(
+                    [
+                        p
+                        for p in path.glob("*.json")
+                        if p.name not in ("run.json", "policy-result.json")
+                    ]
+                )
     else:
         files = [path]
 
