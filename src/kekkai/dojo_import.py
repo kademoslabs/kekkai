@@ -61,7 +61,15 @@ class DojoClient:
 
         try:
             with urlopen(req, timeout=self._timeout) as resp:  # noqa: S310  # nosec B310
-                return json.loads(resp.read().decode()) if resp.read else {}
+                raw_bytes = resp.read()  # Call once and store result
+                if not raw_bytes:  # Check bytes, not method
+                    return {}
+                try:
+                    result: dict[str, Any] = json.loads(raw_bytes.decode())
+                    return result
+                except json.JSONDecodeError:
+                    # Empty or invalid JSON response - return empty dict
+                    return {}
         except HTTPError as exc:
             error_body = exc.read().decode() if exc.fp else str(exc)
             raise RuntimeError(f"Dojo API error {exc.code}: {error_body}") from exc
