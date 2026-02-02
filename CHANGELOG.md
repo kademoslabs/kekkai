@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-02-02
+
 ### Fixed
 - **Triage:** Fixed blank screen when loading raw scanner outputs (Semgrep/Trivy/Gitleaks JSON)
 - **Triage:** Added automatic default to latest run directory when `--input` is omitted
@@ -23,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Run directories (aggregates all `*-results.json` files)
 - **Security:** Added file size limits (200MB max) to prevent DoS attacks (ASVS V10.3.3)
 - **Security:** Enhanced error message sanitization to prevent path disclosure (ASVS V7.4.1)
+- **Report:** Added unified report generation command for scan results
 
 ### Changed
 - **Upload:** Scanner file discovery now prefers `*-results.json` over generic `*.json`
@@ -141,4 +144,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.1.1]: https://github.com/kademoslabs/kekkai/releases/tag/v1.1.1
+[1.1.0]: https://github.com/kademoslabs/kekkai/releases/tag/v1.1.0
+[1.0.5]: https://github.com/kademoslabs/kekkai/releases/tag/v1.0.5
+[1.0.4]: https://github.com/kademoslabs/kekkai/releases/tag/v1.0.4
+[1.0.3]: https://github.com/kademoslabs/kekkai/releases/tag/v1.0.3
+[1.0.2]: https://github.com/kademoslabs/kekkai/releases/tag/v1.0.2
+[1.0.1]: https://github.com/kademoslabs/kekkai/releases/tag/v1.0.1
 [1.0.0]: https://github.com/kademoslabs/kekkai/releases/tag/v1.0.0
