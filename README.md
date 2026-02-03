@@ -16,7 +16,7 @@
 
 **The lazy developer's security scanner.**
 
-Kekkai wraps Trivy, Semgrep, and Gitleaks so you don't have to read JSON outputs or juggle three different CLIs. Review findings in an interactive terminal UI, mark false positives, and move on with your life.
+Kekkai makes open-source security scanners usable: unified results, fast triage, and durable decisions (baseline and false-positive memory) so CI gates stop burning engineering time. You don't have to read JSON outputs or juggle three different CLIs. Review findings in an interactive terminal UI and mark false positives.
 
 ![Hero GIF](https://raw.githubusercontent.com/kademoslabs/assets/main/screenshots/kekkai-start.gif)
 
