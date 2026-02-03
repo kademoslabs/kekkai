@@ -14,15 +14,31 @@
 
 # Kekkai
 
-**The lazy developer's security scanner.**
+**Interactive security triage in the terminal.**
 
-Kekkai makes open-source security scanners usable: unified results, fast triage, and durable decisions (baseline and false-positive memory) so CI gates stop burning engineering time. You don't have to read JSON outputs or juggle three different CLIs. Review findings in an interactive terminal UI and mark false positives.
+Kekkai is a small open-source CLI that wraps existing security scanners (Trivy, Semgrep, Gitleaks) and focuses on the part that tends to be slow and frustrating: reviewing and triaging results.
+
+Running scanners is easy. Interpreting noisy output, dealing with false positives, and making CI usable is not. Kekkai exists to make that part tolerable..
 
 ![Hero GIF](https://raw.githubusercontent.com/kademoslabs/assets/main/screenshots/kekkai-start.gif)
 
 ---
 
-## Quick Start (30 Seconds)
+## What it does
+
+- Runs Trivy (dependencies), Semgrep (code), and Gitleaks (secrets)
+- Normalizes their outputs into a single report format
+- Provides an interactive terminal UI for reviewing findings
+- Lets you mark findings as false positives and persist decisions locally
+- Supports CI mode with severity-based failure thresholds
+
+Kekkai does not replace scanners or introduce proprietary detection logic. It sits on top of existing tools and focuses on workflow and UX.
+
+---
+
+## Quick Start
+
+> Requires Docker and Python 3.12
 
 ### 1. Install
 
@@ -45,6 +61,8 @@ kekkai triage
 # Interactive TUI to review findings with keyboard navigation
 ```
 
+No signup, no cloud service required.
+
 ---
 
 ## Why Kekkai?
@@ -62,7 +80,7 @@ kekkai triage
 
 ## Features
 
-### 🎯 Interactive Triage TUI
+### Interactive Triage TUI
 
 Stop reading JSON. Use keyboard navigation to review findings, mark false positives, and generate ignore files.
 
@@ -84,55 +102,11 @@ kekkai triage
 
 ---
 
-### 🧠 Local-First AI Threat Modeling
-
-Generate STRIDE threat models with AI that runs on **your machine**. No API keys. No cloud.
-
-```bash
-# Ollama (recommended - easy setup, privacy-preserving)
-ollama pull mistral
-kekkai threatflow --repo . --model-mode ollama --model-name mistral
-
-# Output: THREATS.md with attack surface analysis and Mermaid.js diagrams
-```
-
-**Supports:**
-- Ollama (recommended)
-- Local GGUF models (llama.cpp)
-- OpenAI/Anthropic (if you trust them with your code)
-
-[Full Local-First AI Threat Modeling Documentation →](docs/threatflow/README.md)
-
----
-
-### 🔍 Unified Scanning
-
-Run industry-standard scanners without installing them individually. Each scanner runs in an isolated Docker container.
-
-```bash
-kekkai scan                          # Scan current directory
-kekkai scan --repo /path/to/project  # Scan specific path
-kekkai scan --output results.json    # Custom output path
-```
-
-**Scanners Included:**
-| Scanner | Finds | Image |
-|---------|-------|-------|
-| Trivy | CVEs in dependencies | `aquasec/trivy:latest` |
-| Semgrep | Code vulnerabilities | `semgrep/semgrep:latest` |
-| Gitleaks | Hardcoded secrets | `zricethezav/gitleaks:latest` |
-
-**Container Security:**
-- Read-only filesystem
-- No network access
-- Memory limited (2GB)
-- No privilege escalation
-
----
-
-### 🚦 CI/CD Policy Gate
+### CI/CD Policy Gate
 
 Break builds on severity thresholds.
+
+Kekkai can be used as a CI gate based on severity thresholds.
 
 ```bash
 # Fail on any critical or high findings
@@ -162,7 +136,7 @@ kekkai scan --ci --fail-on critical
 
 ---
 
-### 🔔 GitHub PR Comments
+### GitHub PR Comments
 
 Get security feedback directly in pull requests.
 
@@ -170,10 +144,67 @@ Get security feedback directly in pull requests.
 export GITHUB_TOKEN="ghp_..."
 kekkai scan --pr-comment
 ```
+---
+
+### Unified Scanning
+
+Run industry-standard scanners without installing them individually. Each scanner runs in an isolated Docker container.
+
+```bash
+kekkai scan                          # Scan current directory
+kekkai scan --repo /path/to/project  # Scan specific path
+kekkai scan --output results.json    # Custom output path
+```
+
+**Scanners Included:**
+| Scanner | Finds | Image |
+|---------|-------|-------|
+| Trivy | CVEs in dependencies | `aquasec/trivy:latest` |
+| Semgrep | Code vulnerabilities | `semgrep/semgrep:latest` |
+| Gitleaks | Hardcoded secrets | `zricethezav/gitleaks:latest` |
+
+**Container Security:**
+- Read-only filesystem
+- No network access
+- Memory limited (2GB)
+- No privilege escalation
 
 ---
 
-## Advanced Features (Optional)
+#### Design choices
+
+- Local-first: no SaaS required, runs entirely on your machine or CI
+- No network access for scanner containers
+- Read-only filesystems, memory-limited containers
+- Uses existing tools instead of reimplementing scanners
+- Terminal-first UX instead of dashboards
+
+---
+
+## Optional features
+
+These are opt-in and not required for basic use:
+
+### Local-First AI Threat Modeling
+
+Generate STRIDE threat models with AI that runs on **your machine**. No API keys. No cloud.
+
+```bash
+# Ollama (recommended - easy setup, privacy-preserving)
+ollama pull mistral
+kekkai threatflow --repo . --model-mode ollama --model-name mistral
+
+# Output: THREATS.md with attack surface analysis and Mermaid.js diagrams
+```
+
+**Supports:**
+- Ollama (recommended)
+- Local GGUF models (llama.cpp)
+- OpenAI/Anthropic (if you trust them with your code)
+
+[Full Local-First AI Threat Modeling Documentation →](docs/threatflow/README.md)
+
+---
 
 ### DefectDojo Integration
 
@@ -213,6 +244,17 @@ kekkai report --input scan-results.json --format pdf --frameworks PCI-DSS,OWASP
 
 ---
 
+## What this is not
+
+- Not a replacement for commercial AppSec platforms
+- Not a new scanner or detection engine
+- Not optimized for large enterprises (yet)
+- Not a hosted service
+
+Right now, Kekkai is aimed at individual developers and small teams who already run scanners but want better triage and less noise.
+
+---
+
 ## Security
 
 Kekkai is designed with security as a core principle:
@@ -237,6 +279,15 @@ For vulnerability reports, see [SECURITY.md](SECURITY.md).
 | [CI Mode](docs/ci/ci-mode.md) | Pipeline integration |
 | [DefectDojo](docs/dojo/dojo-quickstart.md) | Optional vulnerability management |
 | [Security](docs/security/slsa-provenance.md) | SLSA provenance verification |
+
+---
+
+## Roadmap (short-term)
+
+1. Persistent triage state across runs (baselines)
+2. “New findings only” diffs
+3. Better PR-level workflows
+4. Cleaner reporting for small teams
 
 ---
 
