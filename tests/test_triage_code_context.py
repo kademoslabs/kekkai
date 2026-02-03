@@ -271,3 +271,63 @@ class TestCodeContextExtractor:
         """Test _validate_path rejects paths outside repo."""
         outside_path = (tmp_path / "outside.py").resolve()
         assert extractor._validate_path(outside_path) is False
+
+    def test_extract_windows1252_file(
+        self, temp_repo: Path, extractor: CodeContextExtractor
+    ) -> None:
+        """Test extraction of Windows-1252 encoded file with smart quotes."""
+        # Create file with Windows-1252 encoding (smart quotes)
+        # \x93 and \x94 are left and right double quotes in Windows-1252
+        windows_file = temp_repo / "legacy.txt"
+        windows_file.write_bytes(b"Line 1\nSmart quote: \x93test\x94\nLine 3\n")
+
+        context = extractor.extract("legacy.txt", 2)
+
+        # Should succeed with replacement characters
+        assert context is not None
+        assert context.error is None
+        # Replacement character � (U+FFFD) should appear for invalid UTF-8 bytes
+        assert "�" in context.code or "test" in context.code
+
+    def test_extract_latin1_file(self, temp_repo: Path, extractor: CodeContextExtractor) -> None:
+        """Test extraction of Latin-1 encoded file."""
+        # Create file with Latin-1 encoding (accented characters)
+        latin1_file = temp_repo / "spanish.txt"
+        # é in Latin-1 is \xe9, ñ is \xf1
+        latin1_file.write_bytes(b"Line 1\ncaf\xe9 espa\xf1ol\nLine 3\n")
+
+        context = extractor.extract("spanish.txt", 2)
+
+        # Should succeed with replacement characters
+        assert context is not None
+        assert context.error is None
+        # Either shows replacement chars or the text (depending on encoding luck)
+        assert context.code
+
+    def test_extract_utf8_still_works(
+        self, temp_repo: Path, extractor: CodeContextExtractor
+    ) -> None:
+        """Test that UTF-8 files still work correctly after adding fallback."""
+        # Create proper UTF-8 file with emoji
+        utf8_file = temp_repo / "modern.py"
+        utf8_file.write_text("# Line 1\n# Test 🔥 emoji\n# Line 3\n", encoding="utf-8")
+
+        context = extractor.extract("modern.py", 2)
+
+        # Should succeed without fallback
+        assert context is not None
+        assert context.error is None
+        assert "🔥" in context.code or "emoji" in context.code
+
+    def test_extract_binary_still_skipped(
+        self, temp_repo: Path, extractor: CodeContextExtractor
+    ) -> None:
+        """Test that binary files are still skipped after adding encoding fallback."""
+        # Create binary file
+        binary_file = temp_repo / "binary.pyc"
+        binary_file.write_bytes(b"\x00\x00\x00\x00\xffbinary")
+
+        context = extractor.extract("binary.pyc", 1)
+
+        # Should be skipped (return None for binary)
+        assert context is None

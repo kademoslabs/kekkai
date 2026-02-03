@@ -210,22 +210,38 @@ class CodeContextExtractor:
                 error=f"File too large for display ({size_mb:.1f}MB)",
             )
 
-        # Read file content (with caching for performance)
+        # Read file content (with caching for performance and encoding fallback)
         cache_key = str(full_path)
         if cache_key in self._file_cache:
             file_content = self._file_cache[cache_key]
         else:
             try:
+                # Try UTF-8 first (strict mode)
                 file_content = full_path.read_text(encoding="utf-8")
-                # Cache the content
-                self._file_cache[cache_key] = file_content
-                # Evict oldest entry if cache is full (simple FIFO)
-                if len(self._file_cache) > self._cache_max_size:
-                    # Remove first (oldest) entry
-                    oldest_key = next(iter(self._file_cache))
-                    del self._file_cache[oldest_key]
-            except (OSError, UnicodeDecodeError) as e:
-                # ASVS V7.4.1: Sanitized error
+            except UnicodeDecodeError:
+                # HOTFIX: Fallback to UTF-8 with replacement characters
+                # This allows viewing legacy files (Windows-1252, Latin-1) with � for invalid chars
+                # instead of completely hiding the file with "Cannot read file" error
+                logger.info(
+                    "code_context_encoding_fallback",
+                    extra={"file_path": Path(file_path).name, "reason": "non_utf8"},
+                )
+                try:
+                    file_content = full_path.read_text(encoding="utf-8", errors="replace")
+                except (OSError, UnicodeDecodeError) as e:
+                    # Even fallback failed (should be rare - permissions, etc.)
+                    logger.warning(
+                        "code_context_read_error",
+                        extra={"file_path": Path(file_path).name, "error": str(e)},
+                    )
+                    return CodeContext(
+                        code="",
+                        language="",
+                        vulnerable_line="",
+                        error="Cannot read file (encoding error)",
+                    )
+            except OSError as e:
+                # File read error (permissions, etc.)
                 logger.warning(
                     "code_context_read_error",
                     extra={"file_path": Path(file_path).name, "error": str(e)},
@@ -236,6 +252,14 @@ class CodeContextExtractor:
                     vulnerable_line="",
                     error="Cannot read file",
                 )
+
+            # Cache the content
+            self._file_cache[cache_key] = file_content
+            # Evict oldest entry if cache is full (simple FIFO)
+            if len(self._file_cache) > self._cache_max_size:
+                # Remove first (oldest) entry
+                oldest_key = next(iter(self._file_cache))
+                del self._file_cache[oldest_key]
 
         # Extract code context using existing logic from fix engine
         code_context, vulnerable_line = self._prompt_builder.extract_code_context(

@@ -1268,9 +1268,12 @@ def _command_triage(parsed: argparse.Namespace) -> int:
             except (OSError, json.JSONDecodeError, KeyError):
                 pass
 
-    # Fall back to current directory if still not set
+    # Fall back to current directory if still not set (with warning)
     if repo_path is None:
         repo_path = Path.cwd()
+        console.print("[warning]⚠ Repo path not detected. Using current directory.[/warning]")
+        console.print("[dim]Tip: Use --repo to specify repository root explicitly.[/dim]")
+        console.print(f"[dim]Current directory: {repo_path}[/dim]\n")
 
     return run_triage(
         findings=findings,

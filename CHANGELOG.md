@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-02-03
+
+### Fixed
+- **Triage TUI:** Editor integration now supports VS Code, Sublime Text, Notepad++, and other popular editors (not just Vim/Emacs/Nano)
+  - Detects editor type from `$EDITOR` and uses appropriate line-jump syntax
+  - VS Code: `code -g file:line`, Sublime: `subl file:line`, Notepad++: `notepad++ -nLINE file`
+  - Falls back to vim-style `+line` for unknown editors
+  - Security: Validates `$EDITOR` value to reject shell metacharacters (ASVS V5.1.3)
+- **Triage TUI:** Code context extraction now handles non-UTF-8 files gracefully
+  - Tries UTF-8 first, then falls back to `errors="replace"` mode (shows � for invalid chars)
+  - Fixes "Cannot read file" errors on legacy Windows-1252 and Latin-1 encoded files
+  - Enterprise codebases with mixed encodings now display context instead of hiding it
+- **Triage TUI:** Warns when repo path falls back to current directory
+  - Prints clear warning if `--repo` not specified and `run.json` metadata missing
+  - Helps users diagnose "File not found" errors caused by wrong working directory
+
+### Security
+- **ASVS V5.1.3:** Added validation for `$EDITOR` environment variable (rejects shell metacharacters)
+
 ## [2.2.0] - 2026-02-03
 
 ### Added - Workbench Features (Turning Triage from "Museum" to "Workbench")

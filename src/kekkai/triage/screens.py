@@ -436,6 +436,8 @@ class FindingDetailScreen(Screen[None]):
         import shutil
         import subprocess
 
+        from .editor_support import build_editor_command, detect_editor_config, validate_editor_name
+
         logger = logging.getLogger(__name__)
 
         if not self.finding.file_path or not self.finding.line:
@@ -447,6 +449,15 @@ class FindingDetailScreen(Screen[None]):
 
         # Get editor from environment (ASVS V5.1.3: validate before use)
         editor = os.environ.get("EDITOR", "vim")
+
+        # ASVS V5.1.3: Validate EDITOR value before use (reject shell metacharacters)
+        if not validate_editor_name(editor):
+            self.notify(
+                f"Editor '{editor}' contains unsafe characters. Set a valid $EDITOR.",
+                severity="error",
+            )
+            logger.warning("unsafe_editor_value", extra={"editor": editor})
+            return
 
         # Security validation: check editor exists and is executable
         editor_path = shutil.which(editor)
@@ -463,18 +474,22 @@ class FindingDetailScreen(Screen[None]):
             self.notify(f"File not found: {self.finding.file_path}", severity="error")
             return
 
+        # Detect editor type and build appropriate command
+        editor_config = detect_editor_config(editor)
+
         # Log editor invocation (ASVS V16.7.1)
         logger.info(
             "editor_opened",
             extra={
                 "editor": editor,
+                "editor_type": editor_config.syntax_type,
                 "file": self.finding.file_path,
                 "line": self.finding.line,
             },
         )
 
         # ASVS V14.2.1: Use list args (not shell=True) to prevent injection
-        cmd = [editor_path, f"+{self.finding.line}", str(file_path)]
+        cmd = build_editor_command(editor_path, file_path, self.finding.line, editor_config)
 
         try:
             # Suspend TUI, run editor, then resume

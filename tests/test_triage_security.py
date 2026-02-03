@@ -181,12 +181,14 @@ class TestTriageSecurityControls:
     def test_unicode_decode_error_handled(
         self, temp_repo: Path, extractor: CodeContextExtractor
     ) -> None:
-        """Test that binary files with text extension are handled gracefully."""
+        """Test that files with invalid UTF-8 are handled gracefully with fallback encoding."""
         # Create file with invalid UTF-8
         bad_file = temp_repo / "bad.txt"
         bad_file.write_bytes(b"\xff\xfe invalid utf-8 \x80\x81")
 
         context = extractor.extract("bad.txt", 1)
         assert context is not None
-        assert context.error is not None
-        assert "cannot read" in context.error.lower()
+        # v2.2.1: Now succeeds with replacement characters instead of error
+        assert context.error is None
+        # Should show content with replacement character �
+        assert "�" in context.code or "invalid utf-8" in context.code
