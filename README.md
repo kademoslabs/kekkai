@@ -20,7 +20,7 @@ Kekkai is a small open-source CLI that wraps existing security scanners (Trivy, 
 
 Running scanners is easy. Interpreting noisy output, dealing with false positives, and making CI usable is not. Kekkai exists to make that part tolerable..
 
-![Hero GIF](https://raw.githubusercontent.com/kademoslabs/assets/main/screenshots/kekkai-start.gif)
+![Hero GIF](https://raw.githubusercontent.com/kademoslabs/assets/main/screenshots/kekkai.gif)
 
 ---
 
@@ -96,7 +96,7 @@ kekkai triage
 - `Ctrl+S`: Save decisions
 - `q`: Quit
 
-<!-- Screenshot placeholder: ![Triage TUI](https://raw.githubusercontent.com/kademoslabs/assets/main/screenshots/triage-tui.png) -->
+![Triage TUI](https://raw.githubusercontent.com/kademoslabs/assets/main/screenshots/kekkai-triage.png)
 
 [Full Triage Documentation →](docs/triage/README.md)
 

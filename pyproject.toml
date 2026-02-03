@@ -1,6 +1,6 @@
 [project]
 name = "kekkai-cli"
-version = "2.0.0"
+version = "2.0.1"
 description = "Terminal UI for Trivy/Semgrep/Gitleaks. Local-first security triage."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -9,6 +9,7 @@ dependencies = [
     "jsonschema>=4.20.0",
     "textual>=0.50.0",
     "httpx>=0.24.0",
+    "jinja2>=3.1.6",
 ]
 
 [project.scripts]
