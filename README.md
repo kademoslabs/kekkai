@@ -2,8 +2,7 @@
   <img src="https://raw.githubusercontent.com/kademoslabs/assets/main/logos/kekkai-slim.png" alt="Kekkai CLI Logo" width="250"/>
 </p>
 
-<p align="center"><strong>Security orchestration at developer speed.</strong></p>
-<p align="center"><i>One tool for the entire AppSec lifecycle: Predict, Detect, Triage, Manage.</i></p>
+<p align="center"><strong>Stop parsing JSON. Security triage in your terminal.</strong></p>
 
 <p align="center">
   <img src="https://img.shields.io/github/actions/workflow/status/kademoslabs/kekkai/docker-publish.yml?logo=github"/>
@@ -15,25 +14,31 @@
 
 # Kekkai
 
-Stop juggling security tools. **Kekkai orchestrates your entire AppSec lifecycle** — from AI-powered threat modeling to vulnerability management — in a single CLI.
+**Interactive security triage in the terminal.**
+
+Kekkai is a small open-source CLI that wraps existing security scanners (Trivy, Semgrep, Gitleaks) and focuses on the part that tends to be slow and frustrating: reviewing and triaging results.
+
+Running scanners is easy. Interpreting noisy output, dealing with false positives, and making CI usable is not. Kekkai exists to make that part tolerable..
 
 ![Hero GIF](https://raw.githubusercontent.com/kademoslabs/assets/main/screenshots/kekkai-start.gif)
 
 ---
 
-## The Five Pillars
+## What it does
 
-| Pillar | Feature | Command | Description |
-|--------|---------|---------|-------------|
-| 🔮 **Predict** | AI Threat Modeling | `kekkai threatflow` | Generate STRIDE threat models before writing code |
-| 🔍 **Detect** | Unified Scanning | `kekkai scan` | Run Trivy, Semgrep, Gitleaks in isolated containers |
-| ✅ **Triage** | Interactive Review | `kekkai triage` | Review findings in a terminal UI, mark false positives |
-| 🚦 **Gate** | CI/CD Policy | `kekkai scan --ci` | Break builds on severity thresholds |
-| 📊 **Manage** | DefectDojo | `kekkai dojo up` | Spin up vulnerability management in 60 seconds |
+- Runs Trivy (dependencies), Semgrep (code), and Gitleaks (secrets)
+- Normalizes their outputs into a single report format
+- Provides an interactive terminal UI for reviewing findings
+- Lets you mark findings as false positives and persist decisions locally
+- Supports CI mode with severity-based failure thresholds
+
+Kekkai does not replace scanners or introduce proprietary detection logic. It sits on top of existing tools and focuses on workflow and UX.
 
 ---
 
-## Quick Start (60 Seconds)
+## Quick Start
+
+> Requires Docker and Python 3.12
 
 ### 1. Install
 
@@ -41,14 +46,7 @@ Stop juggling security tools. **Kekkai orchestrates your entire AppSec lifecycle
 pipx install kekkai-cli
 ```
 
-### 2. Predict (Threat Model)
-
-```bash
-kekkai threatflow --repo . --model-mode local
-# Generates THREATS.md with STRIDE analysis and Data Flow Diagram
-```
-
-### 3. Detect (Scan)
+### 2. Scan
 
 ```bash
 kekkai scan
@@ -56,107 +54,47 @@ kekkai scan
 # Outputs unified kekkai-report.json
 ```
 
-### 4. Triage (Review)
+### 3. Triage
 
 ```bash
 kekkai triage
-# Interactive TUI to accept, reject, or ignore findings
+# Interactive TUI to review findings with keyboard navigation
 ```
 
-### 5. Manage (DefectDojo)
-
-```bash
-kekkai dojo up --wait
-kekkai upload
-# Full vulnerability management platform + automated import
-```
+No signup, no cloud service required.
 
 ---
 
 ## Why Kekkai?
 
-| Capability | Manual Approach | Kekkai |
-|------------|-----------------|--------|
-| **Tooling** | Install/update 5+ tools individually | One binary, auto-pulls scanner containers |
-| **Output** | Parse 5 different JSON formats | Unified `kekkai-report.json` |
-| **Threat Modeling** | Expensive consultants or whiteboarding | AI-generated `THREATS.md` locally |
-| **DefectDojo** | 200-line docker-compose + debugging | `kekkai dojo up` (one command) |
-| **Triage** | Read JSON files manually | Interactive terminal UI |
-| **CI/CD** | Complex bash scripts | `kekkai scan --ci --fail-on high` |
-| **PR Feedback** | Manual security review comments | Auto-comments on GitHub PRs |
+| Problem | Kekkai Solution |
+|---------|-----------------|
+| **Juggling 3+ tools** | One CLI for Trivy, Semgrep, Gitleaks |
+| **Reading JSON logs** | Interactive terminal UI |
+| **Installing scanners** | Auto-pulls Docker containers |
+| **Parsing different formats** | Unified `kekkai-report.json` |
+| **False positives** | Mark and ignore with `.kekkaiignore` |
+| **CI/CD integration** | `kekkai scan --ci --fail-on high` |
 
 ---
 
-## Feature Deep Dives
+## Features
 
-### 🔮 ThreatFlow — AI-Powered Threat Modeling
+### Interactive Triage TUI
 
-Generate STRIDE-aligned threat models and Mermaid.js Data Flow Diagrams from your codebase.
-
-![Hero GIF](https://raw.githubusercontent.com/kademoslabs/assets/main/screenshots/kekkai-threatflow.gif)
-
-```bash
-# Ollama (recommended - easy setup, privacy-preserving)
-ollama pull mistral
-kekkai threatflow --repo . --model-mode ollama --model-name mistral
-
-# Local GGUF model (requires llama-cpp-python)
-kekkai threatflow --repo . --model-mode local --model-path ./mistral-7b.gguf
-
-# Remote API (faster, requires API key)
-export KEKKAI_THREATFLOW_API_KEY="sk-..."
-kekkai threatflow --repo . --model-mode openai
-```
-
-**Output:** `THREATS.md` containing:
-- Attack surface analysis
-- STRIDE threat classification
-- Mermaid.js architecture diagram
-- Recommended mitigations
-
-[Full ThreatFlow Documentation →](docs/threatflow/README.md)
-
----
-
-### 🔍 Unified Scanning
-
-Run industry-standard scanners without installing them individually. Each scanner runs in an isolated Docker container with security hardening.
-
-```bash
-kekkai scan                          # Scan current directory
-kekkai scan --repo /path/to/project  # Scan specific path
-kekkai scan --output results.json    # Custom output path
-```
-
-**Scanners Included:**
-| Scanner | Finds | Image |
-|---------|-------|-------|
-| Trivy | CVEs in dependencies | `aquasec/trivy:latest` |
-| Semgrep | Code vulnerabilities | `semgrep/semgrep:latest` |
-| Gitleaks | Hardcoded secrets | `zricethezav/gitleaks:latest` |
-
-**Container Security:**
-- Read-only filesystem
-- No network access
-- Memory limited (2GB)
-- No privilege escalation
-
----
-
-### ✅ Interactive Triage TUI
-
-Stop reading JSON. Review security findings in your terminal.
+Stop reading JSON. Use keyboard navigation to review findings, mark false positives, and generate ignore files.
 
 ```bash
 kekkai triage
 ```
 
-**Features:**
-- Navigate findings with keyboard
-- Mark as: Accept, Reject, False Positive, Ignore
-- Filter by severity, scanner, or status
-- Persist decisions in `.kekkai-ignore`
-- Export triaged results
+**Controls:**
+- `j/k` or `↑/↓`: Navigate findings
+- `f`: Mark as false positive
+- `c`: Confirm finding
+- `d`: Defer/ignore
+- `Ctrl+S`: Save decisions
+- `q`: Quit
 
 <!-- Screenshot placeholder: ![Triage TUI](https://raw.githubusercontent.com/kademoslabs/assets/main/screenshots/triage-tui.png) -->
 
@@ -164,13 +102,11 @@ kekkai triage
 
 ---
 
-### 🚦 CI/CD Policy Gate
+### CI/CD Policy Gate
 
-Automate security enforcement in your pipelines.
+Break builds on severity thresholds.
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/kademoslabs/assets/main/screenshots/kekkai-scan.png" alt="Kekkai Scanning" width="650"/>
-</p>
+Kekkai can be used as a CI gate based on severity thresholds.
 
 ```bash
 # Fail on any critical or high findings
@@ -178,9 +114,6 @@ kekkai scan --ci --fail-on high
 
 # Fail only on critical
 kekkai scan --ci --fail-on critical
-
-# Custom threshold: fail on 5+ medium findings
-kekkai scan --ci --fail-on medium --max-findings 5
 ```
 
 **Exit Codes:**
@@ -203,113 +136,122 @@ kekkai scan --ci --fail-on medium --max-findings 5
 
 ---
 
-### 📊 DefectDojo Integration
+### GitHub PR Comments
 
-Spin up a complete vulnerability management platform locally.
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/kademoslabs/assets/main/screenshots/kekkai-dojo.png" alt="Kekkai Dojo" width="650"/>
-</p>
+Get security feedback directly in pull requests.
 
 ```bash
-kekkai dojo up --wait    # Start DefectDojo (Nginx, Postgres, Redis, Celery)
-kekkai dojo status       # Check service health
+export GITHUB_TOKEN="ghp_..."
+kekkai scan --pr-comment
+```
+---
+
+### Unified Scanning
+
+Run industry-standard scanners without installing them individually. Each scanner runs in an isolated Docker container.
+
+```bash
+kekkai scan                          # Scan current directory
+kekkai scan --repo /path/to/project  # Scan specific path
+kekkai scan --output results.json    # Custom output path
+```
+
+**Scanners Included:**
+| Scanner | Finds | Image |
+|---------|-------|-------|
+| Trivy | CVEs in dependencies | `aquasec/trivy:latest` |
+| Semgrep | Code vulnerabilities | `semgrep/semgrep:latest` |
+| Gitleaks | Hardcoded secrets | `zricethezav/gitleaks:latest` |
+
+**Container Security:**
+- Read-only filesystem
+- No network access
+- Memory limited (2GB)
+- No privilege escalation
+
+---
+
+#### Design choices
+
+- Local-first: no SaaS required, runs entirely on your machine or CI
+- No network access for scanner containers
+- Read-only filesystems, memory-limited containers
+- Uses existing tools instead of reimplementing scanners
+- Terminal-first UX instead of dashboards
+
+---
+
+## Optional features
+
+These are opt-in and not required for basic use:
+
+### Local-First AI Threat Modeling
+
+Generate STRIDE threat models with AI that runs on **your machine**. No API keys. No cloud.
+
+```bash
+# Ollama (recommended - easy setup, privacy-preserving)
+ollama pull mistral
+kekkai threatflow --repo . --model-mode ollama --model-name mistral
+
+# Output: THREATS.md with attack surface analysis and Mermaid.js diagrams
+```
+
+**Supports:**
+- Ollama (recommended)
+- Local GGUF models (llama.cpp)
+- OpenAI/Anthropic (if you trust them with your code)
+
+[Full Local-First AI Threat Modeling Documentation →](docs/threatflow/README.md)
+
+---
+
+### DefectDojo Integration
+
+Spin up a vulnerability management dashboard locally if you need it.
+
+```bash
+kekkai dojo up --wait    # Start DefectDojo
 kekkai upload            # Import scan results
-kekkai dojo down         # Stop and clean up (removes volumes)
 ```
 
 **What You Get:**
 - DefectDojo web UI at `http://localhost:8080`
 - Automatic credential generation
 - Pre-configured for Kekkai imports
-- Clean teardown (no orphaned volumes)
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/kademoslabs/assets/main/screenshots/Active-Engagements-kekkai-dojo.png" alt="Kekkai Dojo" width="850"/>
-</p>
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/kademoslabs/assets/main/screenshots/kekkai-dojo-dashboard-findings.png" alt="Kekkai Dojo" width="850"/>
-</p
-
-[Full Dojo Documentation →](docs/dojo/dojo.md)
+[DefectDojo Quick Start →](docs/dojo/dojo-quickstart.md)
 
 ---
 
-### 🔔 GitHub PR Comments
+### AI-Powered Fix Engine
 
-Get security feedback directly in pull requests.
-
-```bash
-export GITHUB_TOKEN="ghp_..."
-kekkai scan --github-comment
-```
-
-Kekkai will:
-1. Run all scanners
-2. Post findings as PR review comments
-3. Annotate specific lines with inline comments
-
----
-
-## Installation
-
-### pipx (Recommended)
-
-Isolated environment, no conflicts with system Python.
+Generate code patches for findings (experimental).
 
 ```bash
-pipx install kekkai-cli
-```
-
-### Homebrew (macOS/Linux)
-
-```bash
-brew install kademoslabs/tap/kekkai
-```
-
-### Scoop (Windows)
-
-```bash
-scoop bucket add kademoslabs https://github.com/kademoslabs/scoop-bucket
-scoop install kekkai
-```
-
-### Docker (No Python Required)
-
-```bash
-docker pull kademoslabs/kekkai:latest
-alias kekkai='docker run --rm -v "$(pwd):/repo" kademoslabs/kekkai:latest'
-```
-
-### pip (Traditional)
-
-```bash
-pip install kekkai-cli
+kekkai fix --input scan-results.json --apply
 ```
 
 ---
 
-## Enterprise Features
+### Compliance Reporting
 
-For organizations that need advanced capabilities, **Kekkai Enterprise** provides:
+Map findings to PCI-DSS, OWASP, HIPAA, SOC 2.
 
-| Feature | Description |
-|---------|-------------|
-| **Multi-Tenant Portal** | Web dashboard for managing multiple teams/projects ([Learn More](docs/portal/README.md)) |
-| **SAML 2.0 SSO** | Integrate with Okta, Azure AD, Google Workspace |
-| **Role-Based Access Control** | Fine-grained permissions per team/project |
-| **Advanced Operations** | Automated backup/restore, monitoring, zero-downtime upgrades ([Learn More](docs/ops/README.md)) |
-| **Compliance Reporting** | Map findings to OWASP, PCI-DSS, HIPAA, SOC 2 |
-| **Audit Logging** | Cryptographically signed compliance trails |
+```bash
+kekkai report --input scan-results.json --format pdf --frameworks PCI-DSS,OWASP
+```
 
-**Architecture:**
-- Open-source CLI remains fully functional standalone
-- Enterprise features available in separate private repository for licensed customers
-- Optional integration: CLI can sync results to enterprise portal
-- Self-hosted or Kademos-managed deployment options
+---
 
-[Contact us for enterprise access →](mailto:sales@kademos.org)
+## What this is not
+
+- Not a replacement for commercial AppSec platforms
+- Not a new scanner or detection engine
+- Not optimized for large enterprises (yet)
+- Not a hosted service
+
+Right now, Kekkai is aimed at individual developers and small teams who already run scanners but want better triage and less noise.
 
 ---
 
@@ -319,7 +261,7 @@ Kekkai is designed with security as a core principle:
 
 - **Container Isolation**: Scanners run in hardened Docker containers
 - **No Network Access**: Containers cannot reach external networks
-- **Local-First AI**: ThreatFlow can run entirely on your machine
+- **Local-First AI**: run entirely on your machine
 - **SLSA Level 3**: Release artifacts include provenance attestations
 - **Signed Images**: Docker images are Cosign-signed
 
@@ -333,23 +275,19 @@ For vulnerability reports, see [SECURITY.md](SECURITY.md).
 |-------|-------------|
 | [Installation](docs/README.md#installation-methods) | All installation methods |
 | [ThreatFlow](docs/threatflow/README.md) | AI threat modeling setup |
-| [Dojo Quick Start](docs/dojo/dojo-quickstart.md) | DefectDojo in 5 minutes |
+| [Triage TUI](docs/triage/README.md) | Interactive finding review |
 | [CI Mode](docs/ci/ci-mode.md) | Pipeline integration |
-| [Portal](docs/portal/README.md) | Enterprise features overview |
-| [Portal SSO](docs/portal/saml-setup.md) | SAML 2.0 SSO configuration |
-| [Portal RBAC](docs/portal/rbac.md) | Role-based access control |
-| [Portal Deployment](docs/portal/deployment.md) | Self-hosted deployment |
+| [DefectDojo](docs/dojo/dojo-quickstart.md) | Optional vulnerability management |
 | [Security](docs/security/slsa-provenance.md) | SLSA provenance verification |
 
 ---
 
-## CI/CD Status
+## Roadmap (short-term)
 
-[![Kekkai Security Scan](https://github.com/kademoslabs/kekkai/actions/workflows/kekkai-pr-scan.yml/badge.svg)](https://github.com/kademoslabs/kekkai/actions/workflows/kekkai-pr-scan.yml)
-[![Docker Image Publish](https://github.com/kademoslabs/kekkai/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/kademoslabs/kekkai/actions/workflows/docker-publish.yml)
-[![Docker Security Scan](https://github.com/kademoslabs/kekkai/actions/workflows/docker-security-scan.yml/badge.svg)](https://github.com/kademoslabs/kekkai/actions/workflows/docker-security-scan.yml)
-[![Cross-Platform Tests](https://github.com/kademoslabs/kekkai/actions/workflows/test-cross-platform.yml/badge.svg)](https://github.com/kademoslabs/kekkai/actions/workflows/test-cross-platform.yml)
-[![Release with SLSA Provenance](https://github.com/kademoslabs/kekkai/actions/workflows/release-slsa.yml/badge.svg)](https://github.com/kademoslabs/kekkai/actions/workflows/release-slsa.yml)
+1. Persistent triage state across runs (baselines)
+2. “New findings only” diffs
+3. Better PR-level workflows
+4. Cleaner reporting for small teams
 
 ---
 
