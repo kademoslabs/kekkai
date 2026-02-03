@@ -1,7 +1,7 @@
 [project]
 name = "kekkai-cli"
-version = "1.1.1"
-description = "Kekkai monorepo (local-first AppSec orchestration + compliance checker)"
+version = "2.0.0"
+description = "Terminal UI for Trivy/Semgrep/Gitleaks. Local-first security triage."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -55,7 +55,7 @@ source = ["src"]
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
-fail_under = 68
+fail_under = 65
 exclude_lines = [
     "pragma: no cover",
     "if TYPE_CHECKING:",

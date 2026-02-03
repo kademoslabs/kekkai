@@ -1,0 +1,26 @@
+- id: kekkai-scan
+  name: Kekkai Security Scan
+  description: Local-first security scanning (Trivy/Semgrep/Gitleaks)
+  entry: kekkai scan --ci --fail-on high
+  language: python
+  types: [text]
+  pass_filenames: false
+  stages: [commit]
+
+- id: kekkai-scan-strict
+  name: Kekkai Security Scan (Strict)
+  description: Strict security scanning - fail on medium+ findings
+  entry: kekkai scan --ci --fail-on medium
+  language: python
+  types: [text]
+  pass_filenames: false
+  stages: [commit]
+
+- id: kekkai-secrets
+  name: Kekkai Secrets Check
+  description: Fast secrets-only scanning with Gitleaks
+  entry: kekkai scan --ci --scanners gitleaks --fail-on critical
+  language: python
+  types: [text]
+  pass_filenames: false
+  stages: [commit]
