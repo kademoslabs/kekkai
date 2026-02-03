@@ -2,7 +2,7 @@
   <img src="https://raw.githubusercontent.com/kademoslabs/assets/main/logos/kekkai-slim.png" alt="Kekkai CLI Logo" width="250"/>
 </p>
 
-<p align="center"><strong>Stop parsing JSON. Security triage in your terminal.</strong></p>
+<p align="center"><strong>Interactive security triage in the terminal.</strong></p>
 
 <p align="center">
   <img src="https://img.shields.io/github/actions/workflow/status/kademoslabs/kekkai/docker-publish.yml?logo=github"/>
@@ -14,7 +14,7 @@
 
 # Kekkai
 
-**Interactive security triage in the terminal.**
+**Stop parsing JSON.**
 
 Kekkai is a small open-source CLI that wraps existing security scanners (Trivy, Semgrep, Gitleaks) and focuses on the part that tends to be slow and frustrating: reviewing and triaging results.
 
@@ -61,6 +61,17 @@ kekkai triage
 # Interactive TUI to review findings with keyboard navigation
 ```
 
+### ⚡️ Auto-Install (Pre-commit)
+
+Add this to your `.pre-commit-config.yaml` to scan on every commit:
+
+```yaml
+  - repo: [https://github.com/kademoslabs/kekkai](https://github.com/kademoslabs/kekkai)
+    rev: v2.0.1
+    hooks:
+      - id: kekkai-scan
+```
+
 No signup, no cloud service required.
 
 ---
@@ -102,34 +113,11 @@ kekkai triage
 
 ---
 
-### CI/CD Policy Gate
+### 🚦 CI/CD in 1 Second
 
-Break builds on severity thresholds.
-
-Kekkai can be used as a CI gate based on severity thresholds.
-
+Don't write YAML. Run this in your repo:
 ```bash
-# Fail on any critical or high findings
-kekkai scan --ci --fail-on high
-
-# Fail only on critical
-kekkai scan --ci --fail-on critical
-```
-
-**Exit Codes:**
-| Code | Meaning |
-|------|---------|
-| 0 | No findings above threshold |
-| 1 | Findings exceed threshold |
-| 2 | Scanner error |
-
-**GitHub Actions Example:**
-
-```yaml
-- name: Security Scan
-  run: |
-    pipx install kekkai-cli
-    kekkai scan --ci --fail-on high
+kekkai init --ci
 ```
 
 [Full CI Documentation →](docs/ci/ci-mode.md)
