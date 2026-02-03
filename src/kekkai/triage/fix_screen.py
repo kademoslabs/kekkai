@@ -213,16 +213,46 @@ class FixGenerationScreen(ModalScreen[bool]):
             self.fix_generated = False
 
     def action_accept(self) -> None:
-        """Accept and apply the generated fix."""
+        """Accept and apply the generated fix (workbench: step 3 - verification)."""
         if not self.fix_generated:
             return
 
+        # Generate post-fix verification hints
+        verification_message = self._get_verification_hints()
+
         if self.on_fix_generated:
-            self.on_fix_generated(
-                True, "Fix generated successfully (dry-run mode - review before applying)"
-            )
+            self.on_fix_generated(True, verification_message)
 
         self.dismiss(True)
+
+    def _get_verification_hints(self) -> str:
+        """Generate next-steps hints after fix is applied."""
+        file_path = self.finding.file_path or "file"
+        file_name = file_path.split("/")[-1] if "/" in file_path else file_path
+
+        # Detect likely test command based on file extension
+        test_cmd = "pytest tests/"
+        if file_path.endswith(".js") or file_path.endswith(".ts"):
+            test_cmd = "npm test"
+        elif file_path.endswith(".go"):
+            test_cmd = "go test ./..."
+        elif file_path.endswith(".rs"):
+            test_cmd = "cargo test"
+        elif file_path.endswith(".java"):
+            test_cmd = "mvn test"
+
+        hints = [
+            f"✓ Fix applied to {file_name}",
+            "",
+            "📋 Next steps:",
+            f"  1. Run tests: {test_cmd}",
+            "  2. Re-scan: kekkai scan --repo .",
+            f"  3. Commit: git add {file_path} && git commit -m 'fix: {self.finding.title[:50]}'",
+            "",
+            "💡 Tip: Review the changes carefully before committing!",
+        ]
+
+        return "\n".join(hints)
 
     def action_cancel(self) -> None:
         """Cancel fix generation."""

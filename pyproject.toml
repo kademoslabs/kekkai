@@ -1,6 +1,6 @@
 [project]
 name = "kekkai-cli"
-version = "2.0.1"
+version = "2.2.0"
 description = "Terminal UI for Trivy/Semgrep/Gitleaks. Local-first security triage."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -21,7 +21,7 @@ line-length = 100
 extend-exclude = ["dist", "build", ".venv"]
 lint.select = ["E", "F", "I", "B", "UP", "S", "SIM"]
 lint.ignore = ["S101"]  # allow asserts in tests
-lint.per-file-ignores = { "tests/**" = ["S"], "src/kekkai_core/docker/**" = ["S603"], "src/kekkai_core/slsa/**" = ["S603", "S607"], "src/kekkai/github/**" = ["S105"] }
+lint.per-file-ignores = { "tests/**" = ["S", "SIM117"], "src/kekkai_core/docker/**" = ["S603"], "src/kekkai_core/slsa/**" = ["S603", "S607"], "src/kekkai/github/**" = ["S105"] }
 
 [tool.mypy]
 python_version = "3.12"

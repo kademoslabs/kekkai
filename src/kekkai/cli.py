@@ -221,6 +221,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         type=str,
         help="Path for .kekkaiignore output (default: .kekkaiignore)",
     )
+    triage_parser.add_argument(
+        "--repo",
+        type=str,
+        help="Repository root path (default: auto-detect from run.json)",
+    )
+    triage_parser.add_argument(
+        "--context-lines",
+        type=int,
+        default=10,
+        help="Context lines before/after line (default: 10, range: 5-100)",
+    )
 
     # Fix subcommand - AI-powered remediation
     fix_parser = subparsers.add_parser("fix", help="generate AI-powered code fixes for findings")
@@ -1186,6 +1197,11 @@ def _command_triage(parsed: argparse.Namespace) -> int:
 
     input_path_str = cast(str | None, getattr(parsed, "input", None))
     output_path_str = cast(str | None, getattr(parsed, "output", None))
+    repo_path_str = cast(str | None, getattr(parsed, "repo", None))
+    context_lines = cast(int, getattr(parsed, "context_lines", 10))
+
+    # Validate context_lines range
+    context_lines = max(5, min(100, context_lines))
 
     # Default to latest run if no input specified
     if not input_path_str:
@@ -1232,7 +1248,36 @@ def _command_triage(parsed: argparse.Namespace) -> int:
 
     console.print(f"[info]Loaded {len(findings)} finding(s)[/info]\n")
 
-    return run_triage(findings=findings, output_path=output_path)
+    # Auto-detect repo_path from run.json if not explicitly provided
+    repo_path: Path | None = None
+    if repo_path_str:
+        repo_path = Path(repo_path_str).expanduser().resolve()
+    elif input_path.is_dir():
+        # Try to read repo_path from run.json
+        manifest_path = input_path / "run.json"
+        if manifest_path.exists():
+            try:
+                import json
+
+                with manifest_path.open() as f:
+                    manifest_data = json.load(f)
+                stored_repo = manifest_data.get("repo_path")
+                if stored_repo:
+                    repo_path = Path(stored_repo).expanduser().resolve()
+                    console.print(f"[dim]Using repo path from run metadata: {repo_path}[/dim]\n")
+            except (OSError, json.JSONDecodeError, KeyError):
+                pass
+
+    # Fall back to current directory if still not set
+    if repo_path is None:
+        repo_path = Path.cwd()
+
+    return run_triage(
+        findings=findings,
+        output_path=output_path,
+        repo_path=repo_path,
+        context_lines=context_lines,
+    )
 
 
 def _command_fix(parsed: argparse.Namespace) -> int:

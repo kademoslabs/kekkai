@@ -29,6 +29,8 @@ def run_triage(
     input_path: Path | None = None,
     output_path: Path | None = None,
     findings: Sequence[FindingEntry] | None = None,
+    repo_path: Path | None = None,
+    context_lines: int = 10,
 ) -> int:
     """Run the triage TUI (lazy import).
 
@@ -36,6 +38,8 @@ def run_triage(
         input_path: Path to findings JSON file.
         output_path: Path for .kekkaiignore output.
         findings: Pre-loaded findings (alternative to input_path).
+        repo_path: Repository root path for code context display.
+        context_lines: Number of lines to show before/after vulnerable line.
 
     Returns:
         Exit code (0 for success).
@@ -50,6 +54,8 @@ def run_triage(
             input_path=input_path,
             output_path=output_path,
             findings=findings,
+            repo_path=repo_path,
+            context_lines=context_lines,
         )
     except ImportError as e:
         raise RuntimeError(

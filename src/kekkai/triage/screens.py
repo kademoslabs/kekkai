@@ -6,8 +6,10 @@ with keyboard navigation and action handling.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
+from rich.syntax import Syntax
 from rich.text import Text
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -15,6 +17,7 @@ from textual.containers import Vertical, VerticalScroll
 from textual.screen import Screen
 from textual.widgets import Footer, Header, Label, Static, TextArea
 
+from .code_context import CodeContextExtractor
 from .models import TriageState
 from .widgets import FindingCard, sanitize_display
 
@@ -149,10 +152,15 @@ class FindingListScreen(Screen[None]):
         if not self.findings:
             return
         finding = self.findings[self.selected_index]
+        # Get repo_path and context_lines from app if available
+        repo_path = getattr(self.app, "repo_path", None)
+        context_lines = getattr(self.app, "context_lines", 10)
         self.app.push_screen(
             FindingDetailScreen(
                 finding,
                 on_state_change=self._handle_detail_state_change,
+                repo_path=repo_path,
+                context_lines=context_lines,
             )
         )
 
@@ -212,6 +220,10 @@ class FindingDetailScreen(Screen[None]):
     """
 
     BINDINGS = [
+        Binding("x", "fix_with_ai", "🤖 AI Fix"),
+        Binding("ctrl+o", "open_in_editor", "Open in Editor"),
+        Binding("e", "expand_context", "Expand Context"),
+        Binding("s", "shrink_context", "Shrink Context"),
         Binding("f", "mark_false_positive", "False Positive"),
         Binding("c", "mark_confirmed", "Confirmed"),
         Binding("d", "mark_deferred", "Deferred"),
@@ -234,6 +246,24 @@ class FindingDetailScreen(Screen[None]):
         padding: 1;
         border: solid $primary;
     }
+    #code-context-display {
+        height: 20;
+        border: solid $accent;
+        padding: 1;
+        margin: 1 0;
+        overflow-y: scroll;
+    }
+    .error-message {
+        color: $warning;
+        italic: true;
+    }
+    #action-hints {
+        height: auto;
+        padding: 1;
+        margin: 1 0;
+        background: $panel;
+        border: solid $secondary;
+    }
     #notes-area {
         height: 8;
         margin-top: 1;
@@ -245,12 +275,17 @@ class FindingDetailScreen(Screen[None]):
         self,
         finding: FindingEntry,
         on_state_change: Callable[[TriageState, str], None] | None = None,
+        repo_path: Path | None = None,
+        context_lines: int = 10,
         name: str | None = None,
         id: str | None = None,
     ) -> None:
         super().__init__(name=name, id=id)
         self.finding = finding
         self.on_state_change = on_state_change
+        self.repo_path = repo_path or Path.cwd()
+        self.context_lines = context_lines
+        self._code_extractor = CodeContextExtractor(self.repo_path)
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -258,6 +293,13 @@ class FindingDetailScreen(Screen[None]):
             yield Static(self._header_text(), id="detail-header")
             with VerticalScroll(id="detail-content"):
                 yield Static(self._detail_text())
+            # Add code context if available
+            code_widget = self._render_code_context()
+            if code_widget:
+                yield Label("Code Context:")
+                yield code_widget
+            # Add action hints to make workflow discoverable
+            yield Static(self._action_hints(), id="action-hints")
             yield Label("Notes (will be saved with decision):")
             yield TextArea(self.finding.notes, id="notes-area")
         yield Footer()
@@ -340,3 +382,186 @@ class FindingDetailScreen(Screen[None]):
     def action_go_back(self) -> None:
         """Go back to list screen."""
         self.app.pop_screen()
+
+    def _action_hints(self) -> Text:
+        """Generate action hints to make workflow discoverable."""
+        text = Text()
+        text.append("💡 Actions: ", style="bold")
+        text.append("Press ", style="dim")
+        text.append("X", style="bold cyan")
+        text.append(" for AI-powered fix | ", style="dim")
+        text.append("Ctrl+O", style="bold cyan")
+        text.append(" to open in ", style="dim")
+        text.append("$EDITOR", style="italic")
+        text.append(" | ", style="dim")
+        text.append("E", style="bold cyan")
+        text.append("/", style="dim")
+        text.append("S", style="bold cyan")
+        text.append(" to expand/shrink context", style="dim")
+        return text
+
+    def action_fix_with_ai(self) -> None:
+        """Trigger AI-powered fix generation (workbench: step 2)."""
+        # Check if file path and line exist (required for fix)
+        if not self.finding.file_path or not self.finding.line:
+            self.notify(
+                "Cannot generate fix: no file path or line number",
+                severity="warning",
+            )
+            return
+
+        # Import and show fix generation screen
+        try:
+            from .fix_screen import FixGenerationScreen
+
+            def on_fix_result(accepted: bool, preview: str) -> None:
+                if accepted:
+                    self.notify("Fix generation completed!", severity="information")
+                else:
+                    self.notify("Fix generation cancelled", severity="information")
+
+            self.app.push_screen(
+                FixGenerationScreen(
+                    finding=self.finding,
+                    on_fix_generated=on_fix_result,
+                )
+            )
+        except ImportError:
+            self.notify("AI fix feature not available", severity="error")
+
+    def action_open_in_editor(self) -> None:
+        """Open file in external $EDITOR at the vulnerable line (workbench: step 2)."""
+        import logging
+        import os
+        import shutil
+        import subprocess
+
+        logger = logging.getLogger(__name__)
+
+        if not self.finding.file_path or not self.finding.line:
+            self.notify(
+                "Cannot open editor: no file path or line number",
+                severity="warning",
+            )
+            return
+
+        # Get editor from environment (ASVS V5.1.3: validate before use)
+        editor = os.environ.get("EDITOR", "vim")
+
+        # Security validation: check editor exists and is executable
+        editor_path = shutil.which(editor)
+        if not editor_path:
+            self.notify(
+                f"Editor '{editor}' not found. Set $EDITOR environment variable.",
+                severity="error",
+            )
+            return
+
+        # Construct file path relative to repo
+        file_path = self.repo_path / self.finding.file_path
+        if not file_path.exists():
+            self.notify(f"File not found: {self.finding.file_path}", severity="error")
+            return
+
+        # Log editor invocation (ASVS V16.7.1)
+        logger.info(
+            "editor_opened",
+            extra={
+                "editor": editor,
+                "file": self.finding.file_path,
+                "line": self.finding.line,
+            },
+        )
+
+        # ASVS V14.2.1: Use list args (not shell=True) to prevent injection
+        cmd = [editor_path, f"+{self.finding.line}", str(file_path)]
+
+        try:
+            # Suspend TUI, run editor, then resume
+            with self.app.suspend():
+                # S603: subprocess with validated input (editor_path checked via shutil.which)
+                result = subprocess.run(cmd, check=False)  # noqa: S603
+                if result.returncode != 0:
+                    self.notify(
+                        f"Editor exited with code {result.returncode}",
+                        severity="warning",
+                    )
+        except Exception as e:
+            logger.error("editor_failed", extra={"error": str(e)})
+            self.notify(f"Failed to open editor: {e}", severity="error")
+
+    def action_expand_context(self) -> None:
+        """Expand code context by 10 lines (addresses keyhole effect)."""
+        self.context_lines = min(100, self.context_lines + 10)
+        self._refresh_code_context()
+        self.notify(f"Context expanded to {self.context_lines} lines", severity="information")
+
+    def action_shrink_context(self) -> None:
+        """Shrink code context by 10 lines."""
+        self.context_lines = max(5, self.context_lines - 10)
+        self._refresh_code_context()
+        self.notify(f"Context shrunk to {self.context_lines} lines", severity="information")
+
+    def _refresh_code_context(self) -> None:
+        """Refresh code context display with new context_lines setting."""
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        try:
+            # Update the prompt builder's context lines
+            self._code_extractor._prompt_builder.context_lines = self.context_lines
+
+            # Re-render code context
+            code_widget = self._render_code_context()
+            if code_widget:
+                # Find and update the existing widget
+                try:
+                    old_widget = self.query_one("#code-context-display")
+                    # Replace content by removing old and adding new
+                    old_widget.remove()
+                    # Find the label and insert after it
+                    container = self.query_one("#detail-container")
+                    container.mount(code_widget)
+                except Exception as e:
+                    # Widget not found or couldn't refresh
+                    logger.debug("code_context_refresh_failed", extra={"error": str(e)})
+        except Exception as e:
+            # Refresh failed, log but don't crash
+            logger.debug("code_context_update_failed", extra={"error": str(e)})
+
+    def _render_code_context(self) -> Static | None:
+        """Render code context with syntax highlighting.
+
+        Returns:
+            Static widget with Syntax-highlighted code, or None if unavailable.
+
+        Security:
+            - File size limit: 10MB (ASVS V10.3.3)
+            - Path validation: must be within repo_path (ASVS V5.3.3)
+            - Error sanitization: no full paths in errors (ASVS V7.4.1)
+            - Sensitive file blocking (ASVS V8.3.4)
+        """
+        if not self.finding.file_path or not self.finding.line:
+            return None
+
+        context = self._code_extractor.extract(self.finding.file_path, self.finding.line)
+        if not context:
+            return None
+
+        if context.error:
+            return Static(f"Code unavailable: {context.error}", classes="error-message")
+
+        # Create syntax-highlighted code display
+        try:
+            syntax = Syntax(
+                context.code,
+                context.language,
+                line_numbers=False,  # We already have line numbers in the context
+                theme="monokai",
+                word_wrap=False,
+            )
+            return Static(syntax, id="code-context-display")
+        except Exception:
+            # Fallback to plain text if syntax highlighting fails
+            return Static(context.code, id="code-context-display")

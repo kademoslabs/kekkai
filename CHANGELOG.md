@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-02-03
+
+### Added - Workbench Features (Turning Triage from "Museum" to "Workbench")
+- **Triage TUI:** "Open in Editor" integration (Ctrl+O)
+  - Opens `$EDITOR` at exact vulnerable line
+  - Security validated: checks editor exists, prevents shell injection (ASVS V5.1.3, V14.2.1)
+  - Logs editor invocations for audit trail (ASVS V16.7.1)
+  - Seamlessly resumes TUI after editor closes
+- **Triage TUI:** Configurable context lines (addresses "keyhole effect")
+  - `--context-lines` CLI option (default: 10, range: 5-100)
+  - Runtime expand/shrink with E/S hotkeys
+  - User preference persists across sessions
+- **Triage TUI:** Enhanced AI fix discoverability
+  - Prominent action hints widget: "Press X for AI fix | Ctrl+O to open in editor"
+  - Updated footer to emphasize X hotkey
+  - Post-fix verification hints show next steps (run tests, re-scan, commit)
+- **Triage TUI:** Complete actionable workflow
+  - Step 1: Understand (code context with configurable lines)
+  - Step 2: Fix (AI-powered with X or manual with Ctrl+O)
+  - Step 3: Verify (hints for testing and validation)
+
+### Changed
+- **Triage TUI:** FindingDetailScreen now shows action hints by default
+- **Triage TUI:** FixGenerationScreen displays verification hints after fix applied
+- **Triage TUI:** Context lines dynamically adjustable during session
+
+### Security
+- **ASVS V5.1.3:** Editor path validation (checks `$EDITOR` executable, no arbitrary commands)
+- **ASVS V14.2.1:** Safe subprocess execution (uses list args, not shell=True)
+- **ASVS V16.7.1:** Structured logging for editor invocations (audit trail)
+
+## [2.1.0] - 2026-02-03
+
+### Added
+- **Triage TUI:** Code context display in FindingDetailScreen
+  - Shows 10 lines before/after vulnerable line directly in TUI
+  - Syntax highlighting based on file extension (Python, JavaScript, Go, Rust, etc.)
+  - Highlights vulnerable line with >>> marker for easy identification
+  - Eliminates need to open IDE to view code (note: editing still requires IDE)
+  - Graceful error handling for missing/binary/large files
+  - Security hardened per ASVS V5.3.3 (path traversal prevention), V7.4.1 (error sanitization), V8.3.4 (sensitive file blocking), V10.3.3 (DoS mitigation with 10MB file size limit)
+  - Auto-detects repository path from run metadata (`run.json`)
+  - Optional `--repo` flag to override auto-detection
+  - File content caching (20-file LRU) to improve navigation performance
+
+### Changed
+- **Triage TUI:** FindingDetailScreen now accepts optional `repo_path` parameter for code context extraction
+- **Triage TUI:** TriageApp now accepts optional `repo_path` parameter
+- **Triage TUI:** `kekkai triage` now reads `repo_path` from run metadata automatically (no --repo flag needed in most cases)
+
+### Known Limitations
+- Fixed context window (10 lines before/after) may be insufficient for complex vulnerabilities spanning multiple functions
+- Read-only view - editing code still requires leaving TUI
+- Symlink/hardlink edge cases not fully handled
+- Performance may degrade with very large files or rapid navigation (despite caching)
+
 ## [2.0.0] - 2026-02-02
 
 ### BREAKING

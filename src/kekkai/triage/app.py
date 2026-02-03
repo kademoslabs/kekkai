@@ -51,6 +51,8 @@ class TriageApp(App[None]):
         input_path: Path | None = None,
         output_path: Path | None = None,
         audit_path: Path | None = None,
+        repo_path: Path | None = None,
+        context_lines: int = 10,
     ) -> None:
         """Initialize triage application.
 
@@ -59,6 +61,8 @@ class TriageApp(App[None]):
             input_path: Path to findings JSON file.
             output_path: Path for .kekkaiignore output.
             audit_path: Path for audit log.
+            repo_path: Repository root path for code context display.
+            context_lines: Number of lines to show before/after vulnerable line.
         """
         super().__init__()
         self._input_path = input_path
@@ -66,6 +70,8 @@ class TriageApp(App[None]):
         self.ignore_file = IgnoreFile(output_path)
         self.audit_log = TriageAuditLog(audit_path)
         self._decisions: dict[str, TriageDecision] = {}
+        self.repo_path = repo_path or Path.cwd()
+        self.context_lines = context_lines
 
     @property
     def findings(self) -> list[FindingEntry]:
@@ -148,6 +154,8 @@ def run_triage(
     input_path: Path | None = None,
     output_path: Path | None = None,
     findings: Sequence[FindingEntry] | None = None,
+    repo_path: Path | None = None,
+    context_lines: int = 10,
 ) -> int:
     """Run the triage TUI.
 
@@ -155,6 +163,8 @@ def run_triage(
         input_path: Path to findings JSON file.
         output_path: Path for .kekkaiignore output.
         findings: Pre-loaded findings (alternative to input_path).
+        repo_path: Repository root path for code context display.
+        context_lines: Number of lines to show before/after vulnerable line.
 
     Returns:
         Exit code (0 for success).
@@ -163,6 +173,8 @@ def run_triage(
         findings=findings,
         input_path=input_path,
         output_path=output_path,
+        repo_path=repo_path,
+        context_lines=context_lines,
     )
     app.run()
     return 0
