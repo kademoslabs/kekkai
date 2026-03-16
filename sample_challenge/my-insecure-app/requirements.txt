@@ -1,0 +1,4 @@
+flask==0.12
+flask==2.0.0   
+requests==2.25.0   
+pyyaml==5.3.1      
