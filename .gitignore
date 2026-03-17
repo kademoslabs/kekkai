@@ -76,9 +76,5 @@ tmp/
 
 # ---- Local Development Playground ----
 # Untracked directory for reproducing user scenarios
-my-insecure-app/
+sample_challenge/
 threats/
-
-# ---- Enterprise Extraction (Private Repo Content) ----
-# This folder contains enterprise code to be moved to private repo
-SEPARATE/

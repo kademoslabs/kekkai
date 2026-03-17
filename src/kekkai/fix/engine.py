@@ -251,8 +251,18 @@ class FixEngine:
                 error="No file path in finding",
             )
 
+        # Sanitize the path: Strip known Docker mount prefixes
+        clean_path = file_path
+        container_mounts = ["/repo/", "/workspaces/", "/workdir/", "/src/"]
+
+        for mount in container_mounts:
+            if clean_path.startswith(mount):
+                # Slice off the mount prefix to make it a relative path
+                clean_path = clean_path[len(mount):]
+                break
+
         # Resolve full path
-        full_path = (repo_path / file_path).resolve()
+        full_path = (repo_path / clean_path).resolve()
         if not full_path.exists():
             return FixSuggestion(
                 finding=finding,
@@ -260,7 +270,7 @@ class FixEngine:
                 raw_response="",
                 preview="",
                 success=False,
-                error=f"File not found: {file_path}",
+                error=f"File not found: {clean_path}",
             )
 
         # Read file content
