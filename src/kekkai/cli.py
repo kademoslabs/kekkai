@@ -184,8 +184,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     threatflow_parser.add_argument(
         "--model-mode",
         type=str,
-        choices=["local", "ollama", "openai", "anthropic", "mock"],
-        help="LLM backend: local, ollama (recommended), openai, anthropic, or mock",
+        choices=["local", "ollama", "openai", "anthropic", "mock", "gemini"],
+        help="LLM backend: local, ollama (recommended), openai, anthropic, gemini or mock",
     )
     threatflow_parser.add_argument(
         "--model-path", type=str, help="Path to local model file (for local mode)"
@@ -264,9 +264,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     fix_parser.add_argument(
         "--model-mode",
         type=str,
-        choices=["local", "ollama", "openai", "anthropic", "mock"],
+        choices=["local", "ollama", "openai", "anthropic", "mock", "gemini"],
         default="local",
-        help="LLM backend: local (default), openai, anthropic, or mock",
+        help="LLM backend: local (default), openai, anthropic, gemini or mock",
     )
     fix_parser.add_argument(
         "--api-key",

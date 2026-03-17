@@ -259,6 +259,8 @@ class RemoteModelAdapter(ModelAdapter):
                 return self._generate_openai(system_prompt, user_prompt, config, start_time)
             elif self._provider == "anthropic":
                 return self._generate_anthropic(system_prompt, user_prompt, config, start_time)
+            elif self._provider == "gemini":
+                return self._generate_gemini(system_prompt, user_prompt, config, start_time)    
             else:
                 return ModelResponse(
                     content=f"[UNSUPPORTED PROVIDER: {self._provider}]",
@@ -394,7 +396,86 @@ class RemoteModelAdapter(ModelAdapter):
                 model_name=self._model_name,
                 latency_ms=int((time.time() - start_time) * 1000),
             )
+    
+    def _generate_gemini(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        config: ModelConfig,
+        start_time: float,
+    ) -> ModelResponse:
+        """Generate using Google Gemini API."""
+        import urllib.error
+        import urllib.request
 
+        model = config.model_name or self._model_name or "gemini-1.5-flash"
+        # Strip any accidental whitespace or newlines from the terminal export
+        api_key = (self._api_key or "").strip()
+        
+        url = self._api_base or f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+
+        headers = {
+            "Content-Type": "application/json",
+        }
+
+        data = {
+            "systemInstruction": {
+                "parts": [{"text": system_prompt}]
+            },
+            "contents": [
+                {
+                    "role": "user",  # <--- Added strict role definition
+                    "parts": [{"text": user_prompt}]
+                }
+            ],
+            "generationConfig": {
+                "temperature": config.temperature,
+                "maxOutputTokens": config.max_tokens,
+            }
+        }
+
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(data).encode("utf-8"),
+            headers=headers,
+            method="POST",
+        )
+
+        try:
+            with urllib.request.urlopen(req, timeout=config.timeout_seconds) as resp:
+                response_data = json.loads(resp.read().decode("utf-8"))
+
+            content = response_data["candidates"][0]["content"]["parts"][0]["text"]
+            latency_ms = int((time.time() - start_time) * 1000)
+            usage = response_data.get("usageMetadata", {})
+
+            return ModelResponse(
+                content=content,
+                model_name=model,
+                prompt_tokens=usage.get("promptTokenCount", 0),
+                completion_tokens=usage.get("candidatesTokenCount", 0),
+                total_tokens=usage.get("totalTokenCount", 0),
+                latency_ms=latency_ms,
+                raw_response=response_data,
+            )
+        except urllib.error.HTTPError as e:
+            # HACKATHON LIFESAVER: Print the exact error body from Google!
+            error_body = e.read().decode('utf-8')
+            print(f"\n\n[🚨 GEMINI HTTP ERROR {e.code}] 🚨\n{error_body}\n")
+            logger.error("Gemini API error: %s - %s", e, error_body)
+            return ModelResponse(
+                content="",
+                model_name=model,
+                latency_ms=int((time.time() - start_time) * 1000),
+            )
+        except urllib.error.URLError as e:
+            print(f"\n\n[🚨 GEMINI URL ERROR] 🚨\n{e}\n")
+            logger.error("Gemini API error: %s", e)
+            return ModelResponse(
+                content="",
+                model_name=model,
+                latency_ms=int((time.time() - start_time) * 1000),
+            )
 
 class OllamaModelAdapter(ModelAdapter):
     """Adapter for Ollama local LLM server.
@@ -629,5 +710,12 @@ def create_adapter(
             model_name=config.model_name or "claude-3-haiku-20240307",
             provider="anthropic",
         )
+    elif mode == "gemini":
+        return RemoteModelAdapter(
+            api_key=config.api_key,
+            api_base=config.api_base,
+            model_name=config.model_name or "gemini-1.5-flash",
+            provider="gemini",
+        )    
     else:
         raise ValueError(f"Unknown adapter mode: {mode}")
