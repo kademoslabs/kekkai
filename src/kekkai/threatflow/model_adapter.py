@@ -408,7 +408,7 @@ class RemoteModelAdapter(ModelAdapter):
         import urllib.error
         import urllib.request
 
-        model = config.model_name or self._model_name or "gemini-1.5-flash"
+        model = config.model_name or self._model_name or "gemini-3.1-flash-lite-preview"
         # Strip any accidental whitespace or newlines from the terminal export
         api_key = (self._api_key or "").strip()
         
@@ -424,7 +424,7 @@ class RemoteModelAdapter(ModelAdapter):
             },
             "contents": [
                 {
-                    "role": "user",  # <--- Added strict role definition
+                    "role": "user",
                     "parts": [{"text": user_prompt}]
                 }
             ],
@@ -459,7 +459,7 @@ class RemoteModelAdapter(ModelAdapter):
                 raw_response=response_data,
             )
         except urllib.error.HTTPError as e:
-            # HACKATHON LIFESAVER: Print the exact error body from Google!
+            # Print the exact error body from Google!
             error_body = e.read().decode('utf-8')
             print(f"\n\n[🚨 GEMINI HTTP ERROR {e.code}] 🚨\n{error_body}\n")
             logger.error("Gemini API error: %s - %s", e, error_body)
