@@ -99,6 +99,18 @@
         .severity-medium { background: var(--color-medium); color: #333; }
         .severity-low { background: var(--color-low); }
         .severity-info { background: var(--color-info); }
+        .mini-badge {
+            display: inline-block;
+            padding: 0.1rem 0.35rem;
+            border-radius: 999px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            vertical-align: middle;
+            margin-left: 0.35rem;
+            background: #f5f0ff;
+            color: #5a2ea6;
+            border: 1px solid #d7c7ff;
+        }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -151,6 +163,19 @@
         }
         .finding-title { font-weight: 600; }
         .finding-meta { font-size: 0.875rem; color: #6c757d; }
+        .priority-strip {
+            margin-top: 0.6rem;
+            padding: 0.55rem 0.7rem;
+            border-left: 4px solid #6f42c1;
+            background: #f5f0ff;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+        .priority-label {
+            font-weight: 700;
+            color: #5a2ea6;
+            margin-right: 0.4rem;
+        }
         @media print {
             body { background: white; padding: 0; }
             .card { box-shadow: none; border: 1px solid #e9ecef; }
@@ -216,14 +241,21 @@
                         <th>Issue</th>
                         <th>Severity</th>
                         <th>File</th>
+                        <th>Why Now</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for issue in executive_summary.top_issues %}
                     <tr>
-                        <td>{{ issue.title }}</td>
+                        <td>
+                            {{ issue.title }}
+                            {% if issue.reachability %}
+                            <span class="mini-badge">{{ issue.reachability }}</span>
+                            {% endif %}
+                        </td>
                         <td><span class="badge severity-{{ issue.severity }}">{{ issue.severity }}</span></td>
                         <td>{{ issue.file or '-' }}</td>
+                        <td style="font-size: 0.8rem;">{{ issue.priority_reason or '-' }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -302,6 +334,15 @@
                     {% if finding.cwe %}<strong>CWE:</strong> {{ finding.cwe }} |{% endif %}
                     {% if finding.cve %}<strong>CVE:</strong> {{ finding.cve }}{% endif %}
                 </div>
+                {% set pr = finding.extra.get('priority_reason') if finding.extra else none %}
+                {% set reach = finding.extra.get('reachability') if finding.extra else none %}
+                {% if pr or reach %}
+                <div class="priority-strip">
+                    <span class="priority-label">Why prioritized now:</span>
+                    {% if reach %}<strong>Reachability:</strong> {{ reach }}{% if pr %} | {% endif %}{% endif %}
+                    {% if pr %}<strong>Context:</strong> {{ pr }}{% endif %}
+                </div>
+                {% endif %}
                 <p style="margin-top: 0.5rem; font-size: 0.9rem;">{{ finding.description[:300] }}{% if finding.description|length > 300 %}...{% endif %}</p>
             </div>
             {% endfor %}

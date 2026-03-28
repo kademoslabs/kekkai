@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-03-28
+
+### Added
+- **ThreatFlow:** Google Gemini and Anthropic as remote LLM backends alongside OpenAI (`--model-mode`, API keys via env / `.env` overlay).
+- **`kekkai fix`:** Same remote providers for AI-powered remediation (`--model-mode gemini|anthropic|openai`), with model selection via `--model-name` and `KEKKAI_FIX_MODEL_NAME` / provider-specific env vars.
+
+### Changed
+- **Trivy:** Supply-chain oriented hardening for containerized scans — pinned safe image tag, ordered fallback image references (GHCR / ECR / Docker Hub), and consistent hardened container defaults (read-only root, dedicated tmpfs for cache and `HOME`, `no-new-privileges`) applied across scanner services that use the shared runner.
+
+### Fixed
+- **Trivy:** More reliable pulls when the primary registry is unavailable, reducing scan failures in locked-down or multi-registry environments.
+
+### Documentation
+- VHS demo tape and README notes for AI (ThreatFlow + Fix) recordings: terminal sizing, `Wait+Screen` vs `Hide`/`Sleep`, and using `.env` model names so Gemini model IDs match the Generative Language API.
+
 ## [2.2.1] - 2026-02-03
 
 ### Fixed
@@ -262,6 +277,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[2.3.0]: https://github.com/kademoslabs/kekkai/releases/tag/v2.3.0
+[2.2.1]: https://github.com/kademoslabs/kekkai/releases/tag/v2.2.1
+[2.2.0]: https://github.com/kademoslabs/kekkai/releases/tag/v2.2.0
 [1.1.1]: https://github.com/kademoslabs/kekkai/releases/tag/v1.1.1
 [1.1.0]: https://github.com/kademoslabs/kekkai/releases/tag/v1.1.0
 [1.0.5]: https://github.com/kademoslabs/kekkai/releases/tag/v1.0.5

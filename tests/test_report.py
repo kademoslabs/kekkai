@@ -182,6 +182,30 @@ class TestHTMLReportGenerator:
         assert "SQL Injection" in content
         assert "CVE-2021-44228" in content
 
+    def test_top_issues_table_shows_compact_priority_context(self, tmp_path: Path) -> None:
+        findings = [
+            Finding(
+                scanner="semgrep",
+                title="SQL injection",
+                severity=Severity.HIGH,
+                description="dangerous",
+                file_path="api/users.py",
+                extra={
+                    "priority_reason": "externally reachable route",
+                    "reachability": "likely_external",
+                },
+            )
+        ]
+        result = generate_report(
+            findings,
+            tmp_path,
+            ReportConfig(formats=[ReportFormat.HTML]),
+        )
+        html = result.output_files[0].read_text()
+        assert "Why Now" in html
+        assert "likely_external" in html
+        assert "externally reachable route" in html
+
     def test_html_escaping(self, tmp_path: Path) -> None:
         """Test XSS prevention through HTML escaping."""
         malicious_findings = [
@@ -205,6 +229,33 @@ class TestHTMLReportGenerator:
         # Script tags should be escaped
         assert "<script>" not in content
         assert "&lt;script&gt;" in content or "alert" not in content
+
+    def test_html_shows_priority_reason_and_reachability(self, tmp_path: Path) -> None:
+        findings = [
+            Finding(
+                scanner="semgrep",
+                title="SQL injection in API endpoint",
+                severity=Severity.HIGH,
+                description="Unsafe query construction",
+                file_path="app/api.py",
+                line=42,
+                rule_id="python.sql.injection",
+                extra={
+                    "priority_reason": "externally reachable route + exploit pattern",
+                    "reachability": "likely_external",
+                },
+            )
+        ]
+        result = generate_report(
+            findings,
+            tmp_path,
+            ReportConfig(formats=[ReportFormat.HTML]),
+        )
+        assert result.success
+        html = result.output_files[0].read_text()
+        assert "Why prioritized now:" in html
+        assert "Reachability:" in html
+        assert "likely_external" in html
 
     def test_severity_class_filter(self) -> None:
         """Test severity CSS class filter."""

@@ -16,6 +16,7 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
+import re
 
 from ..scanners.base import Finding, Severity
 from ..threatflow.model_adapter import (
@@ -49,6 +50,8 @@ class FixConfig:
     create_backups: bool = True
     sanitize_input: bool = True
     rate_limit_seconds: float = 1.0
+    deterministic_order: bool = True
+    include_related_tests: bool = True
 
 
 @dataclass
@@ -141,8 +144,9 @@ class FixEngine:
                 warnings=["No Semgrep findings with file paths found"],
             )
 
-        # Limit to max_fixes
-        to_fix = fixable[: self.config.max_fixes]
+        # Deterministic and context-aware ordering before max_fixes cap
+        ordered = self._order_findings_for_fix(fixable)
+        to_fix = ordered[: self.config.max_fixes]
         if len(fixable) > self.config.max_fixes:
             logger.warning(
                 "fix_limit_reached",
@@ -310,6 +314,18 @@ class FixEngine:
         additional_context = ""
         if finding.cwe:
             additional_context = f"CWE: {finding.cwe}"
+        score, reason = self._priority_signal(finding)
+        additional_context += (
+            f"\nPriority score: {score}. Why fix now: {reason}"
+            if additional_context
+            else f"Priority score: {score}. Why fix now: {reason}"
+        )
+        if self.config.include_related_tests:
+            related_tests = self._find_related_tests(repo_path, clean_path)
+            if related_tests:
+                additional_context += "\nRelated tests to keep passing:\n- " + "\n- ".join(
+                    related_tests[:5]
+                )
 
         # Build prompt
         system_prompt = self._prompt_builder.build_system_prompt()
@@ -379,6 +395,86 @@ class FixEngine:
             preview=preview,
             success=True,
         )
+
+    def _order_findings_for_fix(self, findings: list[Finding]) -> list[Finding]:
+        """Return findings in deterministic priority order."""
+        if not self.config.deterministic_order:
+            return findings
+        return sorted(
+            findings,
+            key=lambda f: (
+                -self._priority_signal(f)[0],
+                f.file_path or "",
+                int(f.line or 0),
+                f.rule_id or "",
+                f.title,
+            ),
+        )
+
+    def _priority_signal(self, finding: Finding) -> tuple[int, str]:
+        """Compute a simple reachability/context-aware priority score and reason."""
+        severity_weight = {
+            Severity.CRITICAL: 50,
+            Severity.HIGH: 35,
+            Severity.MEDIUM: 20,
+            Severity.LOW: 10,
+            Severity.INFO: 5,
+            Severity.UNKNOWN: 0,
+        }.get(finding.severity, 0)
+        score = severity_weight
+        reasons: list[str] = [f"severity={finding.severity.value}"]
+
+        path = (finding.file_path or "").lower()
+        title = finding.title.lower()
+        desc = finding.description.lower()
+        text = " ".join([title, desc, path, finding.rule_id or ""]).lower()
+
+        if any(tok in path for tok in ("/api", "routes", "controller", "graphql", "auth")):
+            score += 20
+            reasons.append("likely externally reachable code path")
+        if any(tok in text for tok in ("sql", "injection", "rce", "jwt", "ssrf", "auth bypass")):
+            score += 15
+            reasons.append("exploit pattern with high abuse potential")
+        if finding.line is not None:
+            score += 3
+            reasons.append("precise location available")
+        return score, "; ".join(reasons)
+
+    def _find_related_tests(self, repo_path: Path, file_path: str) -> list[str]:
+        """Find probable related tests to preserve behavior while patching."""
+        p = Path(file_path)
+        stem = p.stem
+        test_candidates = [
+            repo_path / "tests",
+            repo_path / "test",
+        ]
+        matches: list[str] = []
+        patterns = [
+            f"test_{stem}.py",
+            f"{stem}_test.py",
+            f"{stem}.spec.js",
+            f"{stem}.test.js",
+            f"{stem}.spec.ts",
+            f"{stem}.test.ts",
+        ]
+        for test_dir in test_candidates:
+            if not test_dir.exists():
+                continue
+            for pat in patterns:
+                for m in test_dir.rglob(pat):
+                    rel = m.resolve().relative_to(repo_path.resolve())
+                    matches.append(str(rel))
+        if not matches:
+            # fallback: fuzzy stem match for deterministic discoverability
+            safe_stem = re.escape(stem)
+            for test_dir in test_candidates:
+                if not test_dir.exists():
+                    continue
+                for m in test_dir.rglob("*"):
+                    if m.is_file() and re.search(safe_stem, m.name):
+                        rel = m.resolve().relative_to(repo_path.resolve())
+                        matches.append(str(rel))
+        return sorted(set(matches))
 
     def fix_from_scan_results(
         self,

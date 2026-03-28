@@ -13,6 +13,7 @@ import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+import hashlib
 
 from kekkai_core import redact
 
@@ -100,6 +101,7 @@ def generate_unified_report(
         }
 
     # Build report structure
+    correlations = _build_correlations(all_findings)
     report: dict[str, Any] = {
         "version": "1.0.0",
         "generated_at": datetime.now(UTC).isoformat(),
@@ -107,6 +109,7 @@ def generate_unified_report(
         "commit_sha": commit_sha,
         "scan_metadata": scanner_metadata,
         "summary": _build_summary(all_findings),
+        "correlations": correlations,
         "findings": all_findings,
     }
 
@@ -132,6 +135,7 @@ def _finding_to_dict(finding: Finding) -> dict[str, Any]:
     Returns:
         Dictionary with redacted sensitive fields.
     """
+    priority_score, priority_reason, reachability, context_signals = _priority_context(finding)
     return {
         "id": finding.dedupe_hash(),
         "scanner": finding.scanner,
@@ -146,6 +150,10 @@ def _finding_to_dict(finding: Finding) -> dict[str, Any]:
         "package_name": finding.package_name,
         "package_version": finding.package_version,
         "fixed_version": finding.fixed_version,
+        "priority_score": priority_score,
+        "priority_reason": priority_reason,
+        "reachability": reachability,
+        "context_signals": context_signals,
     }
 
 
@@ -176,6 +184,94 @@ def _build_summary(findings: list[dict[str, Any]]) -> dict[str, int]:
             summary["unknown"] += 1
 
     return summary
+
+
+def _build_correlations(findings: list[dict[str, Any]]) -> dict[str, Any]:
+    """Correlate similar findings across scanners and annotate findings."""
+    groups: dict[str, list[int]] = {}
+    for idx, finding in enumerate(findings):
+        key = _correlation_key(finding)
+        if not key:
+            continue
+        groups.setdefault(key, []).append(idx)
+
+    correlation_entries: list[dict[str, Any]] = []
+    for key, indexes in groups.items():
+        scanners = sorted({str(findings[i].get("scanner", "")) for i in indexes})
+        if len(scanners) < 2:
+            continue
+        corr_id = hashlib.sha256(key.encode()).hexdigest()[:12]
+        for i in indexes:
+            findings[i]["correlation_id"] = corr_id
+            findings[i]["correlated_scanners"] = scanners
+            findings[i]["correlation_size"] = len(indexes)
+        correlation_entries.append(
+            {
+                "id": corr_id,
+                "scanners": scanners,
+                "finding_ids": [str(findings[i].get("id", "")) for i in indexes],
+                "count": len(indexes),
+            }
+        )
+
+    return {
+        "cross_scanner_groups": len(correlation_entries),
+        "groups": correlation_entries,
+    }
+
+
+def _correlation_key(finding: dict[str, Any]) -> str:
+    """Create a normalized key for cross-scanner finding correlation."""
+    file_path = str(finding.get("file_path") or "").strip().lower()
+    line = str(finding.get("line") or "")
+    cwe = str(finding.get("cwe") or "").strip().upper()
+    cve = str(finding.get("cve") or "").strip().upper()
+    rule = str(finding.get("rule_id") or "").strip().lower()
+    title = str(finding.get("title") or "").strip().lower()
+
+    if cve:
+        return f"cve:{cve}"
+    if cwe and file_path:
+        return f"cwe:{cwe}:{file_path}:{line}"
+    if file_path and line and rule:
+        return f"loc:{file_path}:{line}:{rule.split('.')[-1]}"
+    if file_path and line and title:
+        return f"loc-title:{file_path}:{line}:{title[:64]}"
+    return ""
+
+
+def _priority_context(finding: Finding) -> tuple[int, str, str, list[str]]:
+    """Build explainable priority data: why this is prioritized now."""
+    sev = finding.severity.value
+    base = {
+        "critical": 50,
+        "high": 35,
+        "medium": 20,
+        "low": 10,
+        "info": 5,
+        "unknown": 0,
+    }.get(sev, 0)
+    score = base
+    signals: list[str] = [f"severity={finding.severity.value}"]
+    path = (finding.file_path or "").lower()
+    text = " ".join([finding.title, finding.description, finding.rule_id or ""]).lower()
+    reachability = "unknown"
+
+    if any(tok in path for tok in ("/api", "route", "controller", "graphql", "auth")):
+        score += 20
+        reachability = "likely_external"
+        signals.append("externally reachable surface")
+    if any(tok in text for tok in ("sql injection", "rce", "ssrf", "auth bypass", "jwt")):
+        score += 15
+        signals.append("high-abuse exploit pattern")
+    if finding.line is not None:
+        score += 3
+        signals.append("precise code location")
+    if finding.cve:
+        score += 10
+        signals.append("known CVE context")
+
+    return score, "; ".join(signals), reachability, signals
 
 
 def _write_report_atomic(path: Path, data: dict[str, Any]) -> None:

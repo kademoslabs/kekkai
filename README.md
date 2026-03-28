@@ -19,9 +19,11 @@
 
 Kekkai is a small open-source CLI that wraps existing security scanners (Trivy, Semgrep, Gitleaks) and focuses on the part that tends to be slow and frustrating: reviewing and triaging results.
 
-Running scanners is easy. Interpreting noisy output, dealing with false positives, and making CI usable is not. Kekkai exists to make that part tolerable..
+Running scanners is easy. Interpreting noisy output, dealing with false positives, and making CI usable is not. Kekkai exists to make that part tolerable.
 
-![Hero GIF](https://raw.githubusercontent.com/kademoslabs/assets/main/screenshots/kekkai.gif)
+**See it run:** `kekkai doctor` plus a single `kekkai scan` driving Semgrep, Gitleaks, and Trivy (Docker-backed), then a quick look at the unified `kekkai-report.json` on disk.
+
+![Doctor check and core SAST/SCA scan (Semgrep, Gitleaks, Trivy) producing a unified report.](docs/assets/01-core-scan.gif)
 
 ---
 
@@ -148,9 +150,21 @@ kekkai scan --output results.json    # Custom output path
 **Scanners Included:**
 | Scanner | Finds | Image |
 |---------|-------|-------|
-| Trivy | CVEs in dependencies | `aquasec/trivy:latest` |
+| Trivy | CVEs in dependencies | `ghcr.io/aquasecurity/trivy:0.69.3` |
 | Semgrep | Code vulnerabilities | `semgrep/semgrep:latest` |
 | Gitleaks | Hardcoded secrets | `zricethezav/gitleaks:latest` |
+
+#### DAST with OWASP ZAP (optional)
+
+Point Kekkai at a **running** HTTP service for a baseline ZAP scan. On Linux, `127.0.0.1` / `localhost` targets are rewritten so the ZAP container can reach your host (via `host.docker.internal` + `host-gateway`).
+
+```bash
+kekkai scan --scanners zap \
+  --target-url 'http://127.0.0.1:5000' \
+  --allow-private-ips
+```
+
+![ZAP baseline: verify the app responds, run `kekkai scan` with the ZAP scanner, list generated artifacts.](docs/assets/02-dast-zap.gif)
 
 **Container Security:**
 - Read-only filesystem
@@ -189,10 +203,11 @@ kekkai threatflow --repo . --model-mode ollama --model-name mistral
 **Supports:**
 - Ollama (recommended)
 - Local GGUF models (llama.cpp)
-- OpenAI/Anthropic (if you trust them with your code)
+- OpenAI/Anthropic/Gemini (if you trust them with your code)
 
 [Full Local-First AI Threat Modeling Documentation →](docs/threatflow/README.md)
 
+![ZAI Threat Modelling and Fix: run `kekkai threatflow` with the a selected model, list generated artifacts.](docs/assets/04-ai-threatflow-fix.gif)
 ---
 
 ### DefectDojo Integration
@@ -205,7 +220,7 @@ kekkai upload            # Import scan results
 ```
 
 **What You Get:**
-- DefectDojo web UI at `http://localhost:8080`
+- DefectDojo web UI at `http://localhost:8085` (default HTTP port; override with `kekkai dojo up --port …`)
 - Automatic credential generation
 - Pre-configured for Kekkai imports
 
@@ -225,10 +240,19 @@ kekkai fix --input scan-results.json --apply
 
 ### Compliance Reporting
 
-Map findings to PCI-DSS, OWASP, HIPAA, SOC 2.
+Turn a unified `kekkai-report.json` into **HTML** (or PDF, compliance matrix, etc.) with executive summary and framework mapping (PCI-DSS, OWASP, HIPAA, SOC 2).
 
 ```bash
-kekkai report --input scan-results.json --format pdf --frameworks PCI-DSS,OWASP
+kekkai report --input kekkai-report.json --format html --output ./reports --project my-service
+```
+
+The demo below runs a fast Semgrep-only pass to refresh the JSON, then renders HTML and lists the output directory.
+
+![From unified scan JSON to HTML report and output listing.](docs/assets/03-reporting.gif)
+
+```bash
+# Other formats
+kekkai report --input kekkai-report.json --format pdf --frameworks PCI-DSS,OWASP
 ```
 
 ---

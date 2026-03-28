@@ -89,7 +89,7 @@ class DockerBackend(ScannerBackend):
         """Execute scanner in Docker container.
 
         Args:
-            tool: Docker image reference (e.g., "aquasec/trivy:latest")
+            tool: Docker image reference (e.g., "ghcr.io/aquasecurity/trivy:0.69.3")
             args: Command arguments to run in container
             repo_path: Path to repository (mounted read-only at /repo)
             output_path: Path for output (mounted read-write at /output)

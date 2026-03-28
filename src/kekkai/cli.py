@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import os
+import platform
 import re
 import sys
 from collections.abc import Sequence
@@ -38,10 +41,15 @@ from .scanners import (
     ScanContext,
     Scanner,
     ScanResult,
+    ToolNotFoundError,
+    ToolVersionError,
     create_falco_scanner,
     create_zap_scanner,
+    detect_tool,
     dedupe_findings,
+    docker_available,
 )
+from .triage.ignore import IgnoreFile
 
 RUN_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_.-]{3,64}$")
 
@@ -150,6 +158,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         type=str,
         default="medium",
         help="Minimum severity for PR comments (default: medium)",
+    )
+    scan_parser.add_argument(
+        "--baseline-report",
+        type=str,
+        help="Path to previous kekkai-report.json baseline",
+    )
+    scan_parser.add_argument(
+        "--new-since-baseline",
+        action="store_true",
+        help="Only keep findings not present in --baseline-report",
+    )
+    scan_parser.add_argument(
+        "--suppressions",
+        type=str,
+        help="Path to .kekkaiignore file for suppression filtering",
     )
 
     dojo_parser = subparsers.add_parser("dojo", help=argparse.SUPPRESS)
@@ -372,7 +395,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     upload_parser.add_argument(
         "--dojo-url",
         type=str,
-        help="DefectDojo base URL (default: http://localhost:8080)",
+        help=f"DefectDojo base URL (default: http://localhost:{dojo.DEFAULT_PORT})",
     )
     upload_parser.add_argument(
         "--dojo-api-key",
@@ -390,6 +413,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         type=str,
         default="Default Engagement",
         help="DefectDojo engagement name",
+    )
+
+    doctor_parser = subparsers.add_parser("doctor", help="run local environment diagnostics")
+    doctor_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit diagnostics as JSON",
+    )
+    doctor_parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit non-zero if any recommended tool is missing",
     )
 
     parsed = parser.parse_args(args)
@@ -417,6 +452,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             github_repo=parsed.github_repo,
             max_comments=parsed.max_comments,
             comment_severity=parsed.comment_severity,
+            baseline_report=parsed.baseline_report,
+            new_since_baseline=parsed.new_since_baseline,
+            suppressions_path=parsed.suppressions,
         )
     if parsed.command == "dojo":
         return _command_dojo(parsed)
@@ -430,6 +468,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _command_report(parsed)
     if parsed.command == "upload":
         return _command_upload(parsed)
+    if parsed.command == "doctor":
+        return _command_doctor(parsed)
 
     parser.print_help()
     return 1
@@ -503,6 +543,9 @@ def _command_scan(
     github_repo: str | None = None,
     max_comments: int = 50,
     comment_severity: str = "medium",
+    baseline_report: str | None = None,
+    new_since_baseline: bool = False,
+    suppressions_path: str | None = None,
 ) -> int:
     cfg_path = _resolve_config_path(config_override)
     if not cfg_path.exists():
@@ -574,6 +617,16 @@ def _command_scan(
         if cfg.falco and cfg.falco.enabled:
             falco_enabled = True
 
+        ignore_file = IgnoreFile(Path(suppressions_path)) if suppressions_path else IgnoreFile(
+            repo_path / ".kekkaiignore"
+        )
+        ignore_file.load()
+        if ignore_file.expired_entries_pruned > 0 and ignore_file.path.exists():
+            ignore_file.save()
+            console.print(
+                f"[muted]Pruned {ignore_file.expired_entries_pruned} expired suppressions[/muted]"
+            )
+
         for name in scanner_names:
             scanner = _create_scanner(
                 name=name,
@@ -597,6 +650,8 @@ def _command_scan(
                 if name in ("zap", "falco"):
                     status_ok = False
             else:
+                scan_result = _apply_suppressions(scan_result, ignore_file)
+                scan_results[-1] = scan_result
                 deduped = dedupe_findings(scan_result.findings)
                 console.print(
                     f"  [success]{sanitize_for_terminal(name)}:[/success] {len(deduped)} findings"
@@ -640,6 +695,7 @@ def _command_scan(
         steps=step_results,
     )
     manifest.write_manifest(run_dir / "run.json", run_manifest)
+    artifact_paths: list[Path] = [run_dir / "run.json"]
 
     # Generate unified report (aggregates all scanner findings)
     if scan_results:
@@ -659,17 +715,39 @@ def _command_scan(
             # Default: save in run directory
             unified_report_path = run_dir / "kekkai-report.json"
 
+        report_data: dict[str, Any] | None = None
         try:
-            generate_unified_report(
+            report_data = generate_unified_report(
                 scan_results=scan_results,
                 output_path=unified_report_path,
                 run_id=run_id,
                 commit_sha=commit_sha,
             )
+            if new_since_baseline and baseline_report:
+                report_data = _filter_report_new_since_baseline(
+                    report_data=report_data,
+                    baseline_path=Path(baseline_report),
+                )
+                unified_report_path.write_text(json.dumps(report_data, indent=2), encoding="utf-8")
+                console.print(
+                    f"[success]Baseline diff mode:[/success] "
+                    f"{report_data['summary']['total_findings']} new findings"
+                )
             console.print(f"[success]Unified report:[/success] {unified_report_path}")
+            artifact_paths.append(unified_report_path)
         except UnifiedReportError as e:
             err_msg = sanitize_error(str(e))
             console.print(f"[warning]Failed to generate unified report: {err_msg}[/warning]")
+
+    prov_path = _write_run_provenance(
+        run_dir=run_dir,
+        run_id=run_id,
+        repo_path=repo_path,
+        commit_sha=commit_sha,
+        artifacts=artifact_paths,
+    )
+    artifact_paths.append(prov_path)
+    console.print(f"[muted]Run provenance:[/muted] {prov_path}")
 
     # Collect all findings for policy evaluation
     all_findings: list[Finding] = []
@@ -679,6 +757,12 @@ def _command_scan(
             all_findings.extend(dedupe_findings(scan_res.findings))
         elif scan_res.error:
             scan_errors.append(f"{scan_res.scanner}: {scan_res.error}")
+
+    if new_since_baseline and baseline_report:
+        all_findings = _filter_findings_new_since_baseline(
+            all_findings,
+            Path(baseline_report),
+        )
 
     # Post PR comments if requested
     if pr_comment and all_findings:
@@ -714,6 +798,111 @@ def _command_scan(
 
     console.print(f"Run complete: [cyan]{run_dir}[/cyan]")
     return 0 if status_ok else EXIT_SCAN_ERROR
+
+
+def _apply_suppressions(scan_result: ScanResult, ignore_file: IgnoreFile) -> ScanResult:
+    """Apply active suppressions to a successful scan result."""
+    if not scan_result.success or not scan_result.findings:
+        return scan_result
+    kept: list[Finding] = []
+    for finding in scan_result.findings:
+        rule = finding.rule_id or ""
+        file_path = finding.file_path or ""
+        if ignore_file.matches(finding.scanner, rule, file_path):
+            continue
+        kept.append(finding)
+    return ScanResult(
+        scanner=scan_result.scanner,
+        success=scan_result.success,
+        findings=kept,
+        raw_output_path=scan_result.raw_output_path,
+        error=scan_result.error,
+        duration_ms=scan_result.duration_ms,
+    )
+
+
+def _load_baseline_ids(baseline_path: Path) -> set[str]:
+    """Load finding IDs from a baseline kekkai-report.json."""
+    if not baseline_path.exists():
+        return set()
+    try:
+        data = json.loads(baseline_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return set()
+    findings = data.get("findings", [])
+    if not isinstance(findings, list):
+        return set()
+    return {str(f.get("id", "")) for f in findings if isinstance(f, dict)}
+
+
+def _filter_findings_new_since_baseline(findings: list[Finding], baseline_path: Path) -> list[Finding]:
+    """Return only findings whose IDs are absent from baseline report."""
+    baseline_ids = _load_baseline_ids(baseline_path)
+    if not baseline_ids:
+        return findings
+    return [f for f in findings if f.dedupe_hash() not in baseline_ids]
+
+
+def _filter_report_new_since_baseline(
+    report_data: dict[str, Any], baseline_path: Path
+) -> dict[str, Any]:
+    """Filter report findings to 'new since baseline' and annotate metadata."""
+    baseline_ids = _load_baseline_ids(baseline_path)
+    findings = report_data.get("findings", [])
+    if not isinstance(findings, list):
+        return report_data
+    new_findings = [f for f in findings if str(f.get("id", "")) not in baseline_ids]
+    report_data["findings"] = new_findings
+    from .report.unified import _build_summary as _summary_builder
+
+    report_data["summary"] = _summary_builder(new_findings)
+    report_data["baseline_comparison"] = {
+        "baseline_path": str(baseline_path),
+        "baseline_findings": len(baseline_ids),
+        "new_findings": len(new_findings),
+    }
+    return report_data
+
+
+def _write_run_provenance(
+    *,
+    run_dir: Path,
+    run_id: str,
+    repo_path: Path,
+    commit_sha: str | None,
+    artifacts: list[Path],
+) -> Path:
+    """Write attestable run provenance with artifact digests for CI trust."""
+    subjects: list[dict[str, str]] = []
+    for artifact in artifacts:
+        if not artifact.exists() or not artifact.is_file():
+            continue
+        digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+        subjects.append(
+            {
+                "name": artifact.name,
+                "path": str(artifact),
+                "sha256": digest,
+            }
+        )
+
+    payload = {
+        "schema_version": "1.0",
+        "run_id": run_id,
+        "generated_at": datetime.now(UTC).isoformat(),
+        "repo_path": str(repo_path),
+        "commit_sha": commit_sha,
+        "builder": {
+            "name": "kekkai-cli",
+            "platform": platform.platform(),
+            "python": platform.python_version(),
+        },
+        "attestation_subjects": subjects,
+        "notes": "Sign this file in CI (e.g. cosign) for attestable run provenance.",
+    }
+    out = run_dir / "run-provenance.json"
+    out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return out
 
 
 def _resolve_scanners(override: str | None, config_scanners: list[str] | None) -> list[str]:
@@ -959,7 +1148,7 @@ def _resolve_dojo_config(
         base_url = base_url or settings.base_url
         api_key = api_key or settings.api_key
         return DojoConfig(
-            base_url=base_url or "http://localhost:8080",
+            base_url=base_url or f"http://localhost:{dojo.DEFAULT_PORT}",
             api_key=api_key or "",
             product_name=settings.product_name,
             engagement_name=settings.engagement_name,
@@ -967,7 +1156,7 @@ def _resolve_dojo_config(
 
     if base_url or api_key:
         return DojoConfig(
-            base_url=base_url or "http://localhost:8080",
+            base_url=base_url or f"http://localhost:{dojo.DEFAULT_PORT}",
             api_key=api_key or "",
         )
     return None
@@ -1090,15 +1279,33 @@ def _command_threatflow(parsed: argparse.Namespace) -> int:
         print(f"Error: Repository path not found: {repo_path}")
         return 1
 
-    # Build config from CLI args and environment
-    model_mode_raw = getattr(parsed, "model_mode", None) or os.environ.get("KEKKAI_THREATFLOW_MODE")
+    # Build config from CLI args and environment (.env overlay: same keys as env vars)
+    env_overlay = _load_kekkai_env_overlay(repo_path)
+    model_mode_raw = (
+        getattr(parsed, "model_mode", None)
+        or os.environ.get("KEKKAI_THREATFLOW_MODE")
+        or env_overlay.get("KEKKAI_THREATFLOW_MODE")
+    )
     model_mode: str = model_mode_raw if model_mode_raw else "local"
+    provider = model_mode.lower()
     model_path = getattr(parsed, "model_path", None) or os.environ.get(
         "KEKKAI_THREATFLOW_MODEL_PATH"
     )
-    api_key = getattr(parsed, "api_key", None) or os.environ.get("KEKKAI_THREATFLOW_API_KEY")
-    model_name = getattr(parsed, "model_name", None) or os.environ.get(
-        "KEKKAI_THREATFLOW_MODEL_NAME"
+    api_key = (
+        getattr(parsed, "api_key", None)
+        or _resolve_provider_api_key(
+            provider=provider,
+            generic_env_key="KEKKAI_THREATFLOW_API_KEY",
+            env_overlay=env_overlay,
+        )
+    )
+    model_name = (
+        getattr(parsed, "model_name", None)
+        or _resolve_provider_model_name(
+            provider=provider,
+            generic_env_key="KEKKAI_THREATFLOW_MODEL_NAME",
+            env_overlay=env_overlay,
+        )
     )
 
     config = ThreatFlowConfig(
@@ -1122,13 +1329,16 @@ def _command_threatflow(parsed: argparse.Namespace) -> int:
     print(f"Model mode: {model_mode}")
 
     # Warn about remote mode
-    if model_mode in ("openai", "anthropic"):
+    if model_mode in ("openai", "anthropic", "gemini"):
         print(
             "\n*** WARNING: Using remote API. Code content will be sent to external service. ***\n"
         )
         if not api_key:
             print("Error: API key required for remote mode.")
-            print("  Set --api-key or KEKKAI_THREATFLOW_API_KEY")
+            print(
+                "  Set --api-key or provider env var (KEKKAI_OPENAI_API_KEY / "
+                "KEKKAI_ANTHROPIC_API_KEY / KEKKAI_GEMINI_API_KEY)"
+            )
             return 1
 
     # Warn about disabled security controls
@@ -1176,7 +1386,10 @@ def _command_threatflow(parsed: argparse.Namespace) -> int:
         for level in ["critical", "high", "medium", "low"]:
             if counts.get(level, 0) > 0:
                 print(f"  - {level.capitalize()}: {counts[level]}")
+    else:
+        print("\nThreats identified: 0")
 
+    print("\nThreatFlow run complete.")
     return 0
 
 
@@ -1310,10 +1523,26 @@ def _command_fix(parsed: argparse.Namespace) -> int:
     output_dir_str = cast(str | None, getattr(parsed, "output_dir", None))
     output_dir = Path(output_dir_str).expanduser().resolve() if output_dir_str else None
 
-    # Resolve model settings
+    # Resolve model settings (.env local overrides included)
     model_mode = getattr(parsed, "model_mode", "local") or "local"
-    api_key = getattr(parsed, "api_key", None) or os.environ.get("KEKKAI_FIX_API_KEY")
-    model_name = getattr(parsed, "model_name", None)
+    env_overlay = _load_kekkai_env_overlay(repo_path)
+    provider = str(model_mode).lower()
+    api_key = (
+        getattr(parsed, "api_key", None)
+        or _resolve_provider_api_key(
+            provider=provider,
+            generic_env_key="KEKKAI_FIX_API_KEY",
+            env_overlay=env_overlay,
+        )
+    )
+    model_name = (
+        getattr(parsed, "model_name", None)
+        or _resolve_provider_model_name(
+            provider=provider,
+            generic_env_key="KEKKAI_FIX_MODEL_NAME",
+            env_overlay=env_overlay,
+        )
+    )
     max_fixes = getattr(parsed, "max_fixes", 10)
     timeout = getattr(parsed, "timeout", 120)
     no_backup = getattr(parsed, "no_backup", False)
@@ -1331,14 +1560,17 @@ def _command_fix(parsed: argparse.Namespace) -> int:
     console.print(f"Dry run: {dry_run}")
 
     # Warn about remote mode
-    if model_mode in ("openai", "anthropic"):
+    if model_mode in ("openai", "anthropic", "gemini"):
         console.print(
             "\n[warning]*** WARNING: Using remote API. Code will be sent to external service. ***"
             "[/warning]\n"
         )
         if not api_key:
             console.print("[danger]Error:[/danger] API key required for remote mode.")
-            console.print("  Set --api-key or KEKKAI_FIX_API_KEY environment variable")
+            console.print(
+                "  Set --api-key or provider env var "
+                "(KEKKAI_OPENAI_API_KEY / KEKKAI_ANTHROPIC_API_KEY / KEKKAI_GEMINI_API_KEY)"
+            )
             return 1
 
     # Build config
@@ -1507,7 +1739,7 @@ def _command_upload(parsed: argparse.Namespace) -> int:
     dojo_url = (
         getattr(parsed, "dojo_url", None)
         or os.environ.get("KEKKAI_DOJO_URL")
-        or "http://localhost:8080"
+        or f"http://localhost:{dojo.DEFAULT_PORT}"
     )
     dojo_api_key = getattr(parsed, "dojo_api_key", None) or os.environ.get("KEKKAI_DOJO_API_KEY")
 
@@ -1521,7 +1753,7 @@ def _command_upload(parsed: argparse.Namespace) -> int:
     if not dojo_api_key:
         console.print("[danger]Error:[/danger] DefectDojo API key required")
         console.print("  Set --dojo-api-key or KEKKAI_DOJO_API_KEY environment variable")
-        console.print("  Or run 'kekkai dojo up' to start local DefectDojo first")
+        console.print("  Or run 'kekkai dojo up --wait' to start local DefectDojo and create an API key")
         return 1
 
     product_name = getattr(parsed, "product", "Kekkai Scans")
@@ -1680,6 +1912,39 @@ def _command_upload(parsed: argparse.Namespace) -> int:
     else:
         console.print("\n[danger]Upload failed[/danger]")
         return 1
+
+
+def _command_doctor(parsed: argparse.Namespace) -> int:
+    """Run local environment diagnostics for scanner readiness."""
+    docker_ok, docker_reason = docker_available(force_check=True)
+
+    checks: dict[str, dict[str, str | bool]] = {
+        "docker": {"ok": docker_ok, "details": docker_reason},
+    }
+
+    for tool in ("trivy", "semgrep", "gitleaks", "falco", "zap-cli"):
+        try:
+            info = detect_tool(tool)
+            checks[tool] = {
+                "ok": True,
+                "details": f"{info.path} (v{info.version})",
+            }
+        except (ToolNotFoundError, ToolVersionError) as exc:
+            checks[tool] = {"ok": False, "details": str(exc)}
+
+    if getattr(parsed, "json", False):
+        print(json.dumps(checks, indent=2))
+    else:
+        console.print("[bold cyan]Kekkai Doctor[/bold cyan]")
+        for name, payload in checks.items():
+            status = "[success]OK[/success]" if payload["ok"] else "[warning]MISSING[/warning]"
+            console.print(f"  {name:8} {status}  {payload['details']}")
+
+    if getattr(parsed, "strict", False):
+        strict_targets = ("docker", "trivy", "semgrep", "gitleaks")
+        if any(not bool(checks[name]["ok"]) for name in strict_targets):
+            return 1
+    return 0
 
 
 def _parse_findings_from_json(data: dict[str, Any] | list[Any]) -> list[Finding]:
@@ -1925,6 +2190,69 @@ def _resolve_repo_path(repo_path: Path) -> Path:
 
 def _resolve_run_id(override: str | None) -> str:
     return override or os.environ.get("KEKKAI_RUN_ID") or _generate_run_id()
+
+
+def _load_kekkai_env_overlay(repo_path: Path) -> dict[str, str]:
+    """Load .env key/value pairs (no stdout logging, best-effort parsing)."""
+    candidates = [
+        Path.cwd() / ".env",
+        repo_path / ".env",
+        app_base_dir().parent / ".env",
+    ]
+    env_map: dict[str, str] = {}
+    for path in candidates:
+        if not path.exists() or not path.is_file():
+            continue
+        try:
+            for raw in path.read_text(encoding="utf-8").splitlines():
+                line = raw.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, val = line.split("=", 1)
+                k = key.strip()
+                v = val.strip().strip('"').strip("'")
+                if k:
+                    env_map[k] = v
+        except OSError:
+            continue
+    return env_map
+
+
+def _resolve_provider_api_key(
+    *,
+    provider: str,
+    generic_env_key: str,
+    env_overlay: dict[str, str],
+) -> str | None:
+    provider_candidates = {
+        "openai": ["KEKKAI_OPENAI_API_KEY", "OPENAI_API_KEY"],
+        "anthropic": ["KEKKAI_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY"],
+        "gemini": ["KEKKAI_GEMINI_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY"],
+    }
+    for key in provider_candidates.get(provider, []):
+        val = os.environ.get(key) or env_overlay.get(key)
+        if val:
+            return val
+    return os.environ.get(generic_env_key) or env_overlay.get(generic_env_key)
+
+
+def _resolve_provider_model_name(
+    *,
+    provider: str,
+    generic_env_key: str,
+    env_overlay: dict[str, str],
+) -> str | None:
+    provider_map = {
+        "openai": "KEKKAI_OPENAI_MODEL_NAME",
+        "anthropic": "KEKKAI_ANTHROPIC_MODEL_NAME",
+        "gemini": "KEKKAI_GEMINI_MODEL_NAME",
+    }
+    provider_key = provider_map.get(provider)
+    if provider_key:
+        return os.environ.get(provider_key) or env_overlay.get(provider_key) or os.environ.get(
+            generic_env_key
+        ) or env_overlay.get(generic_env_key)
+    return os.environ.get(generic_env_key) or env_overlay.get(generic_env_key)
 
 
 def _resolve_run_dir(

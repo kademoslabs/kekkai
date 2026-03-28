@@ -7,6 +7,7 @@ keyboard-driven navigation and ignore file generation.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -144,6 +145,8 @@ class TriageApp(App[None]):
                         pattern=pattern,
                         comment=finding.notes[:100] if finding.notes else finding.title[:100],
                         finding_id=finding.id,
+                        owner=os.environ.get("USER", "unknown"),
+                        ttl_days=int(os.environ.get("KEKKAI_IGNORE_TTL_DAYS", "90")),
                     )
 
         self.ignore_file.save()

@@ -23,6 +23,11 @@ jobs:
             . .venv/bin/activate
             make native-test
       - run:
+          name: Doctor and ZAP regression tests
+          command: |
+            . .venv/bin/activate
+            pytest tests/test_kekkai_cli.py tests/test_scanner_zap.py -v
+      - run:
           name: SLSA provenance tests
           command: |
             . .venv/bin/activate
@@ -97,6 +102,11 @@ jobs:
           command: |
             . .venv/bin/activate
             make docker-security-test
+      - run:
+          name: Doctor and ZAP regression tests
+          command: |
+            . .venv/bin/activate
+            pytest tests/test_kekkai_cli.py tests/test_scanner_zap.py -v
 
   build_verification:
     docker:

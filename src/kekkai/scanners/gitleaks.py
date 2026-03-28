@@ -17,6 +17,10 @@ from .container import ContainerConfig, run_container
 
 GITLEAKS_IMAGE = "zricethezav/gitleaks"
 GITLEAKS_DIGEST: str | None = None  # Allow Docker to pull architecture-appropriate image
+GITLEAKS_SAFE_TAG = "latest"
+GITLEAKS_FALLBACK_IMAGES = (
+    "docker.io/zricethezav/gitleaks",
+)
 SCAN_TYPE = "Gitleaks Scan"
 
 
@@ -73,13 +77,6 @@ class GitleaksScanner:
     def _run_docker(self, ctx: ScanContext) -> ScanResult:
         """Run Gitleaks in Docker container."""
         output_file = ctx.output_dir / "gitleaks-results.json"
-        config = ContainerConfig(
-            image=self._image,
-            image_digest=self._digest,
-            read_only=True,
-            network_disabled=True,
-            no_new_privileges=True,
-        )
 
         command = [
             "detect",
@@ -94,17 +91,56 @@ class GitleaksScanner:
             "0",
         ]
 
-        result = run_container(
-            config=config,
-            repo_path=ctx.repo_path,
-            output_path=ctx.output_dir,
-            command=command,
-            timeout_seconds=self._timeout,
+        errors: list[str] = []
+        for image_ref in self._docker_image_candidates():
+            config = ContainerConfig(
+                image=image_ref,
+                image_digest=self._digest,
+                read_only=True,
+                network_disabled=True,
+                no_new_privileges=True,
+            )
+            result = run_container(
+                config=config,
+                repo_path=ctx.repo_path,
+                output_path=ctx.output_dir,
+                command=command,
+                timeout_seconds=self._timeout,
+            )
+            processed = self._process_result(
+                result.timed_out,
+                result.exit_code,
+                result.duration_ms,
+                result.stderr,
+                output_file,
+            )
+            if processed.success:
+                return processed
+            errors.append(f"{image_ref}: {processed.error or 'unknown error'}")
+
+        return ScanResult(
+            scanner=self.name,
+            success=False,
+            findings=[],
+            error="\n".join(errors),
+            duration_ms=0,
         )
 
-        return self._process_result(
-            result.timed_out, result.exit_code, result.duration_ms, result.stderr, output_file
-        )
+    def _docker_image_candidates(self) -> list[str]:
+        """Resolve Gitleaks image candidates with explicit tag defaults and fallback."""
+        primary = self._normalize_image_ref(self._image)
+        if self._image != GITLEAKS_IMAGE:
+            return [primary]
+        fallbacks = [self._normalize_image_ref(img) for img in GITLEAKS_FALLBACK_IMAGES]
+        return [primary, *fallbacks]
+
+    @staticmethod
+    def _normalize_image_ref(image: str) -> str:
+        if "@" in image:
+            return image
+        if ":" in image:
+            return image
+        return f"{image}:{GITLEAKS_SAFE_TAG}"
 
     def _run_native(self, ctx: ScanContext) -> ScanResult:
         """Run Gitleaks natively."""

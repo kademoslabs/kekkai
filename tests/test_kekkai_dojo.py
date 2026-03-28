@@ -53,6 +53,28 @@ def test_parse_compose_ps() -> None:
     assert statuses[0].health == "healthy"
 
 
+def test_parse_compose_ps_publishers_as_list() -> None:
+    """Docker Compose v2 often emits Publishers as a list of port-mapping dicts."""
+    sample = json.dumps(
+        [
+            {
+                "Service": "nginx",
+                "State": "running",
+                "Publishers": [
+                    {
+                        "URL": "0.0.0.0",
+                        "TargetPort": 8080,
+                        "PublishedPort": 8080,
+                        "Protocol": "tcp",
+                    }
+                ],
+            }
+        ]
+    )
+    statuses = parse_compose_ps(sample)
+    assert statuses[0].ports == "0.0.0.0:8080->8080/tcp"
+
+
 def test_env_round_trip(tmp_path: Path) -> None:
     env_path = tmp_path / ".env"
     write_env_file(env_path, {"DD_ADMIN_USER": "root"})
@@ -165,6 +187,7 @@ def test_open_ui_calls_browser(monkeypatch: pytest.MonkeyPatch) -> None:
         called["opened"] = True
         return True
 
+    monkeypatch.setattr("kekkai.dojo._try_open_url_quietly", lambda _url: False)
     monkeypatch.setattr("kekkai.dojo.webbrowser.open", fake_open)
     open_ui(8080)
     assert called["opened"] is True
@@ -175,6 +198,7 @@ def test_build_compose_yaml_no_version() -> None:
     output = build_compose_yaml()
     assert "version:" not in output
     assert output.startswith("services:\n")
+    assert "${DD_PORT:-8085}" in output
 
 
 def test_compose_down_includes_volumes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

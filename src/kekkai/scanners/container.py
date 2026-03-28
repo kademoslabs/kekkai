@@ -18,6 +18,8 @@ class ContainerConfig:
     no_new_privileges: bool = True
     memory_limit: str = "2g"
     cpu_limit: str = "2"
+    # Each entry is a full --add-host value, e.g. "host.docker.internal:host-gateway"
+    extra_hosts: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -106,6 +108,9 @@ def run_container(
 
     if config.no_new_privileges:
         args.append("--security-opt=no-new-privileges")
+
+    for host_spec in config.extra_hosts:
+        args.extend(["--add-host", host_spec])
 
     if config.memory_limit:
         args.extend(["--memory", config.memory_limit])
