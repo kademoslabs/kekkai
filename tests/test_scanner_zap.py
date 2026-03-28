@@ -8,7 +8,12 @@ import pytest
 
 from kekkai.scanners.base import Severity
 from kekkai.scanners.url_policy import UrlPolicy, UrlPolicyError
-from kekkai.scanners.zap import ZapScanner, create_zap_scanner
+from kekkai.scanners.zap import (
+    ZAP_IMAGE,
+    ZapScanner,
+    _zap_target_for_docker_container,
+    create_zap_scanner,
+)
 
 
 def _mock_resolve_public(*args: object, **kwargs: object) -> list[ipaddress.IPv4Address]:
@@ -134,6 +139,28 @@ class TestZapScannerTargetValidation:
         assert url == "http://192.168.1.1/"
 
 
+class TestZapDockerTargetRewrite:
+    def test_loopback_rewritten_with_host_gateway(self) -> None:
+        url, hosts = _zap_target_for_docker_container("http://127.0.0.1:5000/")
+        assert url == "http://host.docker.internal:5000/"
+        assert hosts == ("host.docker.internal:host-gateway",)
+
+    def test_localhost_rewritten(self) -> None:
+        url, hosts = _zap_target_for_docker_container("http://localhost:8080/app")
+        assert url == "http://host.docker.internal:8080/app"
+        assert hosts
+
+    def test_public_url_unchanged(self) -> None:
+        url, hosts = _zap_target_for_docker_container("https://example.com/")
+        assert url == "https://example.com/"
+        assert hosts == ()
+
+    def test_host_docker_internal_adds_gateway(self) -> None:
+        url, hosts = _zap_target_for_docker_container("http://host.docker.internal:5000/")
+        assert url == "http://host.docker.internal:5000/"
+        assert hosts == ("host.docker.internal:host-gateway",)
+
+
 class TestCreateZapScanner:
     def test_creates_scanner_with_target(self) -> None:
         scanner = create_zap_scanner(target_url="https://example.com")
@@ -166,3 +193,16 @@ class TestZapScannerProperties:
     def test_scan_type(self) -> None:
         scanner = ZapScanner()
         assert scanner.scan_type == "ZAP Scan"
+
+    def test_default_zap_image(self) -> None:
+        assert ZAP_IMAGE == "ghcr.io/zaproxy/zaproxy"
+
+    def test_zap_image_candidates_use_stable_tag(self) -> None:
+        scanner = ZapScanner()
+        refs = scanner._docker_image_candidates()
+        assert refs[0] == "ghcr.io/zaproxy/zaproxy:stable"
+
+    def test_custom_zap_image_respected(self) -> None:
+        scanner = ZapScanner(image="ghcr.io/custom/zap:dev")
+        refs = scanner._docker_image_candidates()
+        assert refs == ["ghcr.io/custom/zap:dev"]

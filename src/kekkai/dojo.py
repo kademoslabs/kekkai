@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import contextlib
 import json
+import os
 import secrets
 import shutil
 import socket
 import string
 import subprocess  # nosec B404
+import sys
 import time
 import webbrowser
 from dataclasses import dataclass
@@ -17,7 +19,7 @@ from urllib.request import Request, urlopen
 
 from .paths import app_base_dir, ensure_dir
 
-DEFAULT_PORT = 8080
+DEFAULT_PORT = 8085
 DEFAULT_TLS_PORT = 8443
 DEFAULT_PROJECT_NAME = "kekkai-dojo"
 DEFAULT_DJANGO_VERSION = "latest"
@@ -148,7 +150,7 @@ def build_compose_yaml() -> str:
         "      - defectdojo_media:/usr/share/nginx/html/media\n"
         "    ports:\n"
         "      - target: 8080\n"
-        "        published: ${DD_PORT:-8080}\n"
+        "        published: ${DD_PORT:-8085}\n"
         "        protocol: tcp\n"
         "        mode: host\n"
         "      - target: 8443\n"
@@ -314,6 +316,17 @@ def compose_up(
     env["DD_TLS_PORT"] = str(actual_tls_port)
     write_env_file(env_file, env)
 
+    try:
+        pre_status = compose_status(compose_root=compose_root, project_name=project_name)
+    except RuntimeError:
+        pre_status = []
+    if pre_status and all("running" in (s.state or "").lower() for s in pre_status):
+        print(
+            "DefectDojo stack is already running for this project. "
+            "Use `kekkai dojo open` for the UI, `kekkai dojo status` for service details, "
+            "or `kekkai dojo down` before `kekkai dojo up` if you need to recreate the stack."
+        )
+
     cmd = compose_command() + [
         "--project-name",
         project_name,
@@ -408,7 +421,7 @@ def parse_compose_ps(output: str) -> list[ServiceStatus]:
                 state=str(item.get("State") or "unknown"),
                 health=_optional_str(item.get("Health")),
                 exit_code=_optional_int(item.get("ExitCode")),
-                ports=_optional_str(item.get("Publishers")),
+                ports=_format_publishers(item.get("Publishers")),
             ),
         )
     return statuses
@@ -432,11 +445,61 @@ def wait_for_ui(port: int, timeout: int = 300) -> None:
     raise RuntimeError(f"DefectDojo UI did not become ready in time ({last_error})")
 
 
+def _try_open_url_quietly(url: str) -> bool:
+    """Open URL via OS helpers with stderr suppressed (avoids noisy gio errors on WSL/headless)."""
+    if sys.platform == "darwin":
+        try:
+            proc = subprocess.run(  # noqa: S603  # nosec B603
+                ["open", url],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=60,
+            )
+            return proc.returncode == 0
+        except (OSError, subprocess.TimeoutExpired):
+            return False
+
+    if sys.platform == "win32":
+        try:
+            os.startfile(url)  # noqa: S606
+            return True
+        except OSError:
+            return False
+
+    for binary in ("wslview", "xdg-open"):
+        path = shutil.which(binary)
+        if not path:
+            continue
+        try:
+            proc = subprocess.run(  # noqa: S603  # nosec B603
+                [path, url],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=60,
+            )
+            if proc.returncode == 0:
+                return True
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+    return False
+
+
 def open_ui(port: int) -> None:
     url = f"http://localhost:{port}/"
     print(f"Opening {url}")
+    if _try_open_url_quietly(url):
+        return
     with contextlib.suppress(Exception):
-        webbrowser.open(url)
+        if webbrowser.open(url):
+            return
+    print(
+        "Could not launch a browser automatically (typical on WSL or over SSH). "
+        "Open the URL above in your host browser.\n"
+        "If DefectDojo is already running, check ports with `kekkai dojo status`. "
+        "Manage the stack with `kekkai dojo up` / `kekkai dojo down`."
+    )
 
 
 def generate_api_key(port: int, username: str, password: str, timeout: int = 30) -> str:
@@ -480,6 +543,37 @@ def _random_string(length: int) -> str:
 def _optional_str(value: object) -> str | None:
     if value is None:
         return None
+    return str(value)
+
+
+def _format_publishers(value: object) -> str | None:
+    """Turn docker compose `ps --format json` Publishers field into a readable string."""
+    if value is None:
+        return None
+    if isinstance(value, str) and value.strip():
+        return value
+    if isinstance(value, list):
+        parts: list[str] = []
+        for item in value:
+            if not isinstance(item, dict):
+                parts.append(str(item))
+                continue
+            pub = item.get("PublishedPort") or item.get("published_port")
+            tgt = item.get("TargetPort") or item.get("target_port")
+            host = (
+                item.get("URL")
+                or item.get("HostIp")
+                or item.get("host_ip")
+                or item.get("HostPort")
+                or ""
+            )
+            proto = (item.get("Protocol") or item.get("protocol") or "tcp").lower()
+            if pub is not None and tgt is not None:
+                host_prefix = f"{host}:" if host else ""
+                parts.append(f"{host_prefix}{pub}->{tgt}/{proto}")
+            elif pub is not None:
+                parts.append(str(pub))
+        return ", ".join(parts) if parts else None
     return str(value)
 
 

@@ -24,6 +24,7 @@ CRITICAL INSTRUCTIONS:
 4. Focus only on generating a minimal, targeted fix for the specific vulnerability
 5. Never introduce new vulnerabilities in your fixes
 6. Output your fix in unified diff format ONLY
+7. Keep existing tests passing; preserve behavior unless security requires a behavior change
 
 Your fixes should:
 - Be minimal and targeted (change only what's necessary)
@@ -31,6 +32,7 @@ Your fixes should:
 - Include necessary imports if adding new dependencies
 - Not break existing functionality
 - Follow security best practices
+- Be deterministic: same input should yield the same fix shape
 
 OUTPUT FORMAT:
 You MUST output a valid unified diff that can be applied with `patch -p1`.

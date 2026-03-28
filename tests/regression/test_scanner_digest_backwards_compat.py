@@ -20,7 +20,7 @@ class TestTrivyBackwardsCompat:
 
     def test_image_constant_unchanged(self) -> None:
         """Verify TRIVY_IMAGE constant is unchanged."""
-        assert TRIVY_IMAGE == "aquasec/trivy"
+        assert TRIVY_IMAGE == "ghcr.io/aquasecurity/trivy"
 
     def test_constructor_signature_stable(self) -> None:
         """Verify constructor accepts all expected parameters."""

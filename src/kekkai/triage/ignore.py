@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -123,6 +124,22 @@ class IgnoreEntry:
     pattern: str
     comment: str = ""
     finding_id: str = ""
+    owner: str = ""
+    expires_at: str = ""
+    created_at: str = ""
+
+    def is_expired(self, now: datetime | None = None) -> bool:
+        """Return True if entry has an expiry and it is in the past."""
+        if not self.expires_at:
+            return False
+        try:
+            expiry = datetime.fromisoformat(self.expires_at)
+        except ValueError:
+            return False
+        if expiry.tzinfo is None:
+            expiry = expiry.replace(tzinfo=UTC)
+        check_now = now or datetime.now(UTC)
+        return expiry < check_now
 
 
 class IgnoreFile:
@@ -146,6 +163,7 @@ class IgnoreFile:
         self.path = path or Path(".kekkaiignore")
         self.entries: list[IgnoreEntry] = []
         self._validator = IgnorePatternValidator()
+        self.expired_entries_pruned = 0
 
     def load(self) -> list[IgnoreEntry]:
         """Load entries from file.
@@ -154,6 +172,7 @@ class IgnoreFile:
             List of ignore entries.
         """
         self.entries = []
+        self.expired_entries_pruned = 0
 
         if not self.path.exists():
             return self.entries
@@ -166,13 +185,26 @@ class IgnoreFile:
                 continue
 
             comment = ""
+            owner = ""
+            expires_at = ""
+            created_at = ""
             if " # " in line:
-                line, comment = line.split(" # ", 1)
+                line, raw_meta = line.split(" # ", 1)
                 line = line.strip()
-                comment = comment.strip()
+                comment, owner, expires_at, created_at = self._parse_inline_metadata(raw_meta)
 
             if self._validator.is_valid(line):
-                self.entries.append(IgnoreEntry(pattern=line, comment=comment))
+                entry = IgnoreEntry(
+                    pattern=line,
+                    comment=comment,
+                    owner=owner,
+                    expires_at=expires_at,
+                    created_at=created_at,
+                )
+                if entry.is_expired():
+                    self.expired_entries_pruned += 1
+                    continue
+                self.entries.append(entry)
 
         return self.entries
 
@@ -194,15 +226,35 @@ class IgnoreFile:
 
         for entry in self.entries:
             pattern = self._validator.validate(entry.pattern)
+            if entry.is_expired():
+                self.expired_entries_pruned += 1
+                continue
+
+            meta_parts: list[str] = []
             if entry.comment:
-                safe_comment = entry.comment.replace("\n", " ").replace("#", "")[:100]
-                lines.append(f"{pattern}  # {safe_comment}")
+                meta_parts.append(entry.comment.replace("\n", " ").replace("#", "")[:100])
+            if entry.owner:
+                meta_parts.append(f"owner={entry.owner}")
+            if entry.expires_at:
+                meta_parts.append(f"expires={entry.expires_at}")
+            if entry.created_at:
+                meta_parts.append(f"created={entry.created_at}")
+            if meta_parts:
+                lines.append(f"{pattern}  # {' | '.join(meta_parts)}")
             else:
                 lines.append(pattern)
 
         self.path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    def add_entry(self, pattern: str, comment: str = "", finding_id: str = "") -> None:
+    def add_entry(
+        self,
+        pattern: str,
+        comment: str = "",
+        finding_id: str = "",
+        owner: str = "",
+        expires_at: str = "",
+        ttl_days: int = 0,
+    ) -> None:
         """Add a validated entry.
 
         Args:
@@ -214,7 +266,17 @@ class IgnoreFile:
             ValidationError: If pattern is invalid.
         """
         validated = self._validator.validate(pattern)
-        self.entries.append(IgnoreEntry(pattern=validated, comment=comment, finding_id=finding_id))
+        entry = IgnoreEntry(
+            pattern=validated,
+            comment=comment,
+            finding_id=finding_id,
+            owner=owner,
+            expires_at=expires_at,
+            created_at=datetime.now(UTC).isoformat(),
+        )
+        if not entry.expires_at and ttl_days > 0:
+            entry.expires_at = (datetime.now(UTC) + timedelta(days=ttl_days)).isoformat()
+        self.entries.append(entry)
 
     def has_pattern(self, pattern: str) -> bool:
         """Check if pattern already exists.
@@ -243,6 +305,8 @@ class IgnoreFile:
         scanner_only = scanner
 
         for entry in self.entries:
+            if entry.is_expired():
+                continue
             pattern = entry.pattern
             if pattern == full_pattern:
                 return True
@@ -267,3 +331,26 @@ class IgnoreFile:
         """
         regex_pattern = re.escape(pattern).replace(r"\*", ".*")
         return bool(re.fullmatch(regex_pattern, target))
+
+    def _parse_inline_metadata(self, raw_meta: str) -> tuple[str, str, str, str]:
+        """Parse inline metadata comment into text and key fields."""
+        comment = raw_meta.strip()
+        owner = ""
+        expires = ""
+        created = ""
+        chunks = [c.strip() for c in raw_meta.split("|")]
+        text_chunks: list[str] = []
+        for chunk in chunks:
+            if chunk.startswith("owner="):
+                owner = chunk.split("=", 1)[1].strip()
+            elif chunk.startswith("expires="):
+                expires = chunk.split("=", 1)[1].strip()
+            elif chunk.startswith("created="):
+                created = chunk.split("=", 1)[1].strip()
+            elif chunk:
+                text_chunks.append(chunk)
+        if text_chunks:
+            comment = " | ".join(text_chunks)
+        else:
+            comment = ""
+        return comment, owner, expires, created

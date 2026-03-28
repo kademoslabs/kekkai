@@ -262,6 +262,8 @@ class ReportGenerator:
                 "severity": f.severity.value,
                 "file": f.file_path,
                 "rule_id": f.rule_id,
+                "priority_reason": f.extra.get("priority_reason", ""),
+                "reachability": f.extra.get("reachability", ""),
             }
             for f in sorted_findings[:limit]
         ]

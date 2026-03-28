@@ -103,8 +103,37 @@ def dedupe_findings(findings: Sequence[Finding]) -> list[Finding]:
     seen: set[str] = set()
     result: list[Finding] = []
     for f in findings:
-        h = f.dedupe_hash()
+        h = _dedupe_key(f)
         if h not in seen:
             seen.add(h)
             result.append(f)
     return result
+
+
+def _dedupe_key(finding: Finding) -> str:
+    """Return a stable dedupe key, with Semgrep-specific noise collapsing.
+
+    Semgrep may emit multiple overlapping findings on the same sink/source line
+    from different rule families (e.g. flask/django/sqlalchemy variants). For
+    those, dedupe by location + severity + message to reduce duplicate-style noise.
+    """
+    if (
+        finding.scanner == "semgrep"
+        and finding.file_path
+        and finding.line is not None
+    ):
+        message = " ".join(finding.description.split())
+        rule_tail = ""
+        if finding.rule_id:
+            tokens = finding.rule_id.split(".")
+            rule_tail = tokens[-1] if tokens else finding.rule_id
+        parts = [
+            finding.scanner,
+            finding.file_path,
+            str(finding.line),
+            finding.severity.value,
+            rule_tail,
+            message[:96],
+        ]
+        return hashlib.sha256("|".join(parts).encode()).hexdigest()[:16]
+    return finding.dedupe_hash()

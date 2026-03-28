@@ -512,6 +512,79 @@ class TestUnifiedReportGeneration:
         assert result_finding["cwe"] == "CWE-89"
         assert result_finding["id"] == finding.dedupe_hash()
 
+    def test_adds_cross_scanner_correlations(self, tmp_path: Path) -> None:
+        """Findings with same CVE across scanners get correlated."""
+        output_path = tmp_path / "report.json"
+        scan_results = [
+            ScanResult(
+                scanner="trivy",
+                success=True,
+                findings=[
+                    Finding(
+                        scanner="trivy",
+                        title="openssl vulnerable",
+                        severity=Severity.HIGH,
+                        description="dep vuln",
+                        cve="CVE-2024-1234",
+                    )
+                ],
+                duration_ms=1000,
+            ),
+            ScanResult(
+                scanner="semgrep",
+                success=True,
+                findings=[
+                    Finding(
+                        scanner="semgrep",
+                        title="hardcoded vulnerable package",
+                        severity=Severity.MEDIUM,
+                        description="code reference",
+                        cve="CVE-2024-1234",
+                    )
+                ],
+                duration_ms=1000,
+            ),
+        ]
+        report = generate_unified_report(
+            scan_results=scan_results,
+            output_path=output_path,
+            run_id="test-run",
+        )
+        assert report["correlations"]["cross_scanner_groups"] == 1
+        assert "correlation_id" in report["findings"][0]
+        assert "correlation_id" in report["findings"][1]
+
+    def test_includes_priority_context_fields(self, tmp_path: Path) -> None:
+        output_path = tmp_path / "report.json"
+        scan_results = [
+            ScanResult(
+                scanner="semgrep",
+                success=True,
+                findings=[
+                    Finding(
+                        scanner="semgrep",
+                        title="SQL injection in API",
+                        severity=Severity.HIGH,
+                        description="sql injection risk",
+                        file_path="src/api/users.py",
+                        line=12,
+                        rule_id="python.sql.injection",
+                    )
+                ],
+                duration_ms=1000,
+            )
+        ]
+        report = generate_unified_report(
+            scan_results=scan_results,
+            output_path=output_path,
+            run_id="test-run",
+        )
+        finding = report["findings"][0]
+        assert "priority_score" in finding
+        assert "priority_reason" in finding
+        assert "reachability" in finding
+        assert "context_signals" in finding
+
     def test_handles_empty_scan_results(self, tmp_path: Path) -> None:
         """Test handling of empty scan results."""
         output_path = tmp_path / "report.json"

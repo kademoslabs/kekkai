@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 
 from kekkai.scanners.base import Severity
-from kekkai.scanners.gitleaks import GitleaksScanner
+from kekkai.scanners.gitleaks import GITLEAKS_IMAGE, GitleaksScanner
 
 GITLEAKS_OUTPUT = json.dumps(
     [
@@ -72,3 +72,16 @@ class TestGitleaksParser:
         finding = scanner._parse_leak(leak)
         assert "this_is_a_very_long_secret_value" not in finding.description
         assert len(finding.description) < 100
+
+    def test_default_gitleaks_image(self) -> None:
+        assert GITLEAKS_IMAGE == "zricethezav/gitleaks"
+
+    def test_gitleaks_image_candidates(self) -> None:
+        scanner = GitleaksScanner()
+        refs = scanner._docker_image_candidates()
+        assert refs[0] == "zricethezav/gitleaks:latest"
+
+    def test_custom_gitleaks_image_respected(self) -> None:
+        scanner = GitleaksScanner(image="ghcr.io/custom/gitleaks:dev")
+        refs = scanner._docker_image_candidates()
+        assert refs == ["ghcr.io/custom/gitleaks:dev"]

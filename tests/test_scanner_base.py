@@ -97,3 +97,47 @@ class TestDedupe:
 
     def test_dedupe_empty_list(self) -> None:
         assert dedupe_findings([]) == []
+
+    def test_dedupe_collapses_semgrep_family_duplicates_same_line(self) -> None:
+        f1 = Finding(
+            scanner="semgrep",
+            title="python.flask.security.injection.tainted-sql-string",
+            severity=Severity.HIGH,
+            description="Detected user input used to manually construct a SQL string.",
+            file_path="/repo/app.py",
+            line=100,
+            rule_id="python.flask.security.injection.tainted-sql-string",
+        )
+        f2 = Finding(
+            scanner="semgrep",
+            title="python.django.security.injection.tainted-sql-string",
+            severity=Severity.HIGH,
+            description="Detected user input used to manually construct a SQL string.",
+            file_path="/repo/app.py",
+            line=100,
+            rule_id="python.django.security.injection.tainted-sql-string",
+        )
+        result = dedupe_findings([f1, f2])
+        assert len(result) == 1
+
+    def test_dedupe_keeps_semgrep_findings_if_line_differs(self) -> None:
+        f1 = Finding(
+            scanner="semgrep",
+            title="python.flask.security.injection.tainted-sql-string",
+            severity=Severity.HIGH,
+            description="Detected user input used to manually construct a SQL string.",
+            file_path="/repo/app.py",
+            line=100,
+            rule_id="python.flask.security.injection.tainted-sql-string",
+        )
+        f2 = Finding(
+            scanner="semgrep",
+            title="python.django.security.injection.tainted-sql-string",
+            severity=Severity.HIGH,
+            description="Detected user input used to manually construct a SQL string.",
+            file_path="/repo/app.py",
+            line=101,
+            rule_id="python.django.security.injection.tainted-sql-string",
+        )
+        result = dedupe_findings([f1, f2])
+        assert len(result) == 2

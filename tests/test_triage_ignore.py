@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -172,3 +173,28 @@ class TestIgnoreFile:
         ignore_file = IgnoreFile(tmp_path / "nonexistent")
         entries = ignore_file.load()
         assert entries == []
+
+    def test_load_with_owner_and_expiry_metadata(self, tmp_path: Path) -> None:
+        ignore_path = tmp_path / ".kekkaiignore"
+        future = (datetime.now(UTC) + timedelta(days=7)).isoformat()
+        ignore_path.write_text(
+            f"semgrep:rule-a  # owned suppression | owner=alice | expires={future}\n",
+            encoding="utf-8",
+        )
+        ignore_file = IgnoreFile(ignore_path)
+        entries = ignore_file.load()
+        assert len(entries) == 1
+        assert entries[0].owner == "alice"
+        assert entries[0].expires_at == future
+
+    def test_expired_entries_are_pruned(self, tmp_path: Path) -> None:
+        ignore_path = tmp_path / ".kekkaiignore"
+        past = (datetime.now(UTC) - timedelta(days=1)).isoformat()
+        ignore_path.write_text(
+            f"semgrep:rule-expired  # owner=bob | expires={past}\n",
+            encoding="utf-8",
+        )
+        ignore_file = IgnoreFile(ignore_path)
+        entries = ignore_file.load()
+        assert entries == []
+        assert ignore_file.expired_entries_pruned == 1

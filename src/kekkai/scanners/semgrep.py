@@ -17,6 +17,10 @@ from .container import ContainerConfig, run_container
 
 SEMGREP_IMAGE = "returntocorp/semgrep"
 SEMGREP_DIGEST: str | None = None  # Allow Docker to pull architecture-appropriate image
+SEMGREP_SAFE_TAG = "latest"
+SEMGREP_FALLBACK_IMAGES = (
+    "docker.io/returntocorp/semgrep",
+)
 SCAN_TYPE = "Semgrep JSON Report"
 
 
@@ -75,13 +79,6 @@ class SemgrepScanner:
     def _run_docker(self, ctx: ScanContext) -> ScanResult:
         """Run Semgrep in Docker container."""
         output_file = ctx.output_dir / "semgrep-results.json"
-        config = ContainerConfig(
-            image=self._image,
-            image_digest=self._digest,
-            read_only=True,
-            network_disabled=False,
-            no_new_privileges=True,
-        )
 
         command = [
             "semgrep",
@@ -94,17 +91,52 @@ class SemgrepScanner:
             "/repo",
         ]
 
-        result = run_container(
-            config=config,
-            repo_path=ctx.repo_path,
-            output_path=ctx.output_dir,
-            command=command,
-            timeout_seconds=self._timeout,
+        errors: list[str] = []
+        for image_ref in self._docker_image_candidates():
+            config = ContainerConfig(
+                image=image_ref,
+                image_digest=self._digest,
+                read_only=True,
+                network_disabled=False,
+                no_new_privileges=True,
+            )
+            result = run_container(
+                config=config,
+                repo_path=ctx.repo_path,
+                output_path=ctx.output_dir,
+                command=command,
+                timeout_seconds=self._timeout,
+            )
+            processed = self._process_result(
+                result.timed_out, result.duration_ms, result.stderr, output_file
+            )
+            if processed.success:
+                return processed
+            errors.append(f"{image_ref}: {processed.error or 'unknown error'}")
+
+        return ScanResult(
+            scanner=self.name,
+            success=False,
+            findings=[],
+            error="\n".join(errors),
+            duration_ms=0,
         )
 
-        return self._process_result(
-            result.timed_out, result.duration_ms, result.stderr, output_file
-        )
+    def _docker_image_candidates(self) -> list[str]:
+        """Resolve Semgrep image candidates with explicit tag defaults and fallback."""
+        primary = self._normalize_image_ref(self._image)
+        if self._image != SEMGREP_IMAGE:
+            return [primary]
+        fallbacks = [self._normalize_image_ref(img) for img in SEMGREP_FALLBACK_IMAGES]
+        return [primary, *fallbacks]
+
+    @staticmethod
+    def _normalize_image_ref(image: str) -> str:
+        if "@" in image:
+            return image
+        if ":" in image:
+            return image
+        return f"{image}:{SEMGREP_SAFE_TAG}"
 
     def _run_native(self, ctx: ScanContext) -> ScanResult:
         """Run Semgrep natively."""

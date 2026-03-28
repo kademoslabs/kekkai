@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 
 from kekkai.scanners.base import Severity
-from kekkai.scanners.semgrep import SemgrepScanner
+from kekkai.scanners.semgrep import SEMGREP_IMAGE, SemgrepScanner
 
 SEMGREP_OUTPUT = json.dumps(
     {
@@ -70,3 +70,16 @@ class TestSemgrepParser:
         scanner = SemgrepScanner()
         assert scanner.name == "semgrep"
         assert scanner.scan_type == "Semgrep JSON Report"
+
+    def test_default_semgrep_image(self) -> None:
+        assert SEMGREP_IMAGE == "returntocorp/semgrep"
+
+    def test_semgrep_image_candidates(self) -> None:
+        scanner = SemgrepScanner()
+        refs = scanner._docker_image_candidates()
+        assert refs[0] == "returntocorp/semgrep:latest"
+
+    def test_custom_semgrep_image_respected(self) -> None:
+        scanner = SemgrepScanner(image="ghcr.io/custom/semgrep:dev")
+        refs = scanner._docker_image_candidates()
+        assert refs == ["ghcr.io/custom/semgrep:dev"]

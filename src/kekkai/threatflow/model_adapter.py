@@ -459,23 +459,28 @@ class RemoteModelAdapter(ModelAdapter):
                 raw_response=response_data,
             )
         except urllib.error.HTTPError as e:
-            # Print the exact error body from Google!
-            error_body = e.read().decode('utf-8')
-            print(f"\n\n[🚨 GEMINI HTTP ERROR {e.code}] 🚨\n{error_body}\n")
-            logger.error("Gemini API error: %s - %s", e, error_body)
+            # Do not print raw provider payloads to stdout; keep logs sanitized.
+            error_body = e.read().decode("utf-8", errors="replace")
+            sanitized = self._sanitize_error(error_body, api_key)
+            logger.error("Gemini API HTTP error %s: %s", e.code, sanitized)
             return ModelResponse(
                 content="",
                 model_name=model,
                 latency_ms=int((time.time() - start_time) * 1000),
             )
         except urllib.error.URLError as e:
-            print(f"\n\n[🚨 GEMINI URL ERROR] 🚨\n{e}\n")
-            logger.error("Gemini API error: %s", e)
+            logger.error("Gemini API URL error: %s", self._sanitize_error(str(e), api_key))
             return ModelResponse(
                 content="",
                 model_name=model,
                 latency_ms=int((time.time() - start_time) * 1000),
             )
+
+    @staticmethod
+    def _sanitize_error(message: str, api_key: str) -> str:
+        if api_key:
+            return message.replace(api_key, "[REDACTED_API_KEY]")
+        return message
 
 class OllamaModelAdapter(ModelAdapter):
     """Adapter for Ollama local LLM server.

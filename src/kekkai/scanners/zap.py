@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 from .backends import (
     BackendType,
@@ -17,8 +18,35 @@ from .container import ContainerConfig, run_container
 from .url_policy import UrlPolicy, UrlPolicyError, validate_target_url
 
 ZAP_IMAGE = "ghcr.io/zaproxy/zaproxy"
-ZAP_DIGEST = "sha256:a1b2c3d4e5f6"  # Placeholder - update with real digest
+ZAP_DIGEST: str | None = None
+ZAP_SAFE_TAG = "stable"
+ZAP_FALLBACK_IMAGES = (
+    "docker.io/zaproxy/zap-stable:latest",
+)
 SCAN_TYPE = "ZAP Scan"
+
+# Linux Docker does not define host.docker.internal unless we add it (Docker 20.10+).
+_DOCKER_HOST_GATEWAY_SPEC = "host.docker.internal:host-gateway"
+
+
+def _zap_target_for_docker_container(url: str) -> tuple[str, tuple[str, ...]]:
+    """Rewrite URLs so ZAP running *inside* Docker can reach a service on the host.
+
+    ``http://127.0.0.1`` / ``localhost`` inside a container is the container's own
+    loopback, not the machine publishing ports from ``docker compose``. Map those
+    to ``host.docker.internal`` and add ``--add-host`` so Linux behaves like Docker Desktop.
+    """
+    parts = urlsplit(url)
+    host = (parts.hostname or "").lower()
+    if host in ("127.0.0.1", "localhost", "::1"):
+        port = parts.port
+        netloc = "host.docker.internal" if port is None else f"host.docker.internal:{port}"
+        path = parts.path if parts.path else "/"
+        rewritten = urlunsplit((parts.scheme, netloc, path, parts.query, parts.fragment))
+        return rewritten, (_DOCKER_HOST_GATEWAY_SPEC,)
+    if host == "host.docker.internal":
+        return url, (_DOCKER_HOST_GATEWAY_SPEC,)
+    return url, ()
 
 
 class ZapScanner:
@@ -110,43 +138,75 @@ class ZapScanner:
                 duration_ms=0,
             )
 
-        config = ContainerConfig(
-            image=self._image,
-            image_digest=self._digest,
-            read_only=False,  # ZAP needs to write its own files
-            network_disabled=False,  # ZAP needs network to scan target
-            no_new_privileges=True,
-            memory_limit="4g",  # ZAP can be memory-hungry
-            cpu_limit="2",
-        )
+        scan_url, extra_hosts = _zap_target_for_docker_container(validated_url)
 
         # ZAP baseline scan command
         # Uses zap-baseline.py which is designed for CI/CD
         command = [
             "zap-baseline.py",
             "-t",
-            validated_url,
+            scan_url,
             "-J",
             "/zap/wrk/zap-results.json",
             "-I",  # Don't fail on warnings
-            "-d",  # Show debug messages
+            "-s",  # Short output — less noise in CI / recordings
+            "--autooff",  # Preserve legacy baseline output artifact path semantics
         ]
 
-        result = run_container(
-            config=config,
-            repo_path=ctx.repo_path,  # Not really used for ZAP
-            output_path=ctx.output_dir,
-            command=command,
-            timeout_seconds=self._timeout,
-            workdir="/zap/wrk",
-            output_mount="/zap/wrk",
-            skip_repo_mount=True,  # ZAP doesn't need repo
-            user=None,  # ZAP container has its own user setup
+        errors: list[str] = []
+        for image_ref in self._docker_image_candidates():
+            config = ContainerConfig(
+                image=image_ref,
+                image_digest=self._digest,
+                read_only=False,  # ZAP needs to write its own files
+                network_disabled=False,  # ZAP needs network to scan target
+                no_new_privileges=True,
+                memory_limit="4g",  # ZAP can be memory-hungry
+                cpu_limit="2",
+                extra_hosts=extra_hosts,
+            )
+
+            result = run_container(
+                config=config,
+                repo_path=ctx.repo_path,  # Not really used for ZAP
+                output_path=ctx.output_dir,
+                command=command,
+                timeout_seconds=self._timeout,
+                workdir="/zap/wrk",
+                output_mount="/zap/wrk",
+                skip_repo_mount=True,  # ZAP doesn't need repo
+                user=None,  # ZAP container has its own user setup
+            )
+            processed = self._process_result(
+                result.timed_out, result.duration_ms, result.stderr, ctx.output_dir
+            )
+            if processed.success:
+                return processed
+            errors.append(f"{image_ref}: {processed.error or 'unknown error'}")
+
+        return ScanResult(
+            scanner=self.name,
+            success=False,
+            findings=[],
+            error="\n".join(errors),
+            duration_ms=0,
         )
 
-        return self._process_result(
-            result.timed_out, result.duration_ms, result.stderr, ctx.output_dir
-        )
+    def _docker_image_candidates(self) -> list[str]:
+        """Resolve ZAP image candidates with stable tag and fallback registry."""
+        primary = self._normalize_image_ref(self._image)
+        if self._image != ZAP_IMAGE:
+            return [primary]
+        fallbacks = [self._normalize_image_ref(img) for img in ZAP_FALLBACK_IMAGES]
+        return [primary, *fallbacks]
+
+    @staticmethod
+    def _normalize_image_ref(image: str) -> str:
+        if "@" in image:
+            return image
+        if ":" in image:
+            return image
+        return f"{image}:{ZAP_SAFE_TAG}"
 
     def _run_native(self, ctx: ScanContext) -> ScanResult:
         """Run ZAP natively using zap-cli.

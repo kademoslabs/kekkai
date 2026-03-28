@@ -6,6 +6,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .dojo import DEFAULT_PORT as DOJO_DEFAULT_PORT
 from .paths import app_base_dir
 
 DEFAULT_TIMEOUT_SECONDS = 900
@@ -30,7 +31,7 @@ class PipelineStep:
 @dataclass(frozen=True)
 class DojoSettings:
     enabled: bool = False
-    base_url: str = "http://localhost:8080"
+    base_url: str = f"http://localhost:{DOJO_DEFAULT_PORT}"
     api_key: str = ""
     product_name: str = "Kekkai Scans"
     engagement_name: str = "Default Engagement"
@@ -253,7 +254,9 @@ def _parse_dojo(value: object) -> DojoSettings | None:
         return None
     return DojoSettings(
         enabled=bool(value.get("enabled", False)),
-        base_url=str(value.get("base_url", "http://localhost:8080")),
+        base_url=str(
+            value.get("base_url", f"http://localhost:{DOJO_DEFAULT_PORT}"),
+        ),
         api_key=str(value.get("api_key", "")),
         product_name=str(value.get("product_name", "Kekkai Scans")),
         engagement_name=str(value.get("engagement_name", "Default Engagement")),

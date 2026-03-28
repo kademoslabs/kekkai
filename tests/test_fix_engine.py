@@ -384,6 +384,31 @@ class TestFixEngine:
         assert result.success
         assert result.findings_processed == 1
 
+    def test_deterministic_fix_ordering(self) -> None:
+        engine = FixEngine(FixConfig(dry_run=True, deterministic_order=True))
+        findings = [
+            Finding(
+                scanner="semgrep",
+                title="medium bug",
+                severity=Severity.MEDIUM,
+                description="x",
+                file_path="src/b.py",
+                line=20,
+                rule_id="r2",
+            ),
+            Finding(
+                scanner="semgrep",
+                title="critical api bug",
+                severity=Severity.CRITICAL,
+                description="sql injection in api",
+                file_path="src/api.py",
+                line=10,
+                rule_id="r1",
+            ),
+        ]
+        ordered = engine._order_findings_for_fix(findings)
+        assert ordered[0].title == "critical api bug"
+
 
 class TestCreateSessionId:
     """Tests for session ID generation."""

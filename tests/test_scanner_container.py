@@ -18,6 +18,7 @@ class TestContainerConfig:
         assert config.no_new_privileges is True
         assert config.memory_limit == "2g"
         assert config.cpu_limit == "2"
+        assert config.extra_hosts == ()
 
     def test_with_digest(self) -> None:
         config = ContainerConfig(

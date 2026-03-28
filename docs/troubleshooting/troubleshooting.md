@@ -94,10 +94,14 @@ Error response from daemon: pull access denied
 
 2. **Verify image exists:**
    ```bash
-   docker pull aquasec/trivy:latest
+   docker pull ghcr.io/aquasecurity/trivy:0.69.3
    docker pull returntocorp/semgrep:latest
    docker pull zricethezav/gitleaks:latest
    ```
+
+   Notes:
+   - Prefer pinned Trivy tags over `latest` for reproducibility.
+   - Avoid compromised Trivy tags from March 2026 incident: `0.69.4`, `0.69.5`, `0.69.6`.
 
 3. **Check Docker Hub rate limits:**
    ```bash
@@ -130,7 +134,7 @@ trivy failed: timeout exceeded
 
 2. **Check Trivy database update:**
    ```bash
-   docker run --rm aquasec/trivy:latest image --download-db-only
+   docker run --rm ghcr.io/aquasecurity/trivy:0.69.3 image --download-db-only
    ```
 
 3. **Verify sufficient disk space:**
@@ -186,6 +190,20 @@ gitleaks failed: unable to detect git repository
    ```
 
 3. **Gitleaks runs with `--no-git` flag by default** - this scans files without requiring git history. If you see this error, check file permissions.
+
+### ZAP fails to access `http://127.0.0.1` / localhost
+
+**Symptom:**
+```
+ZAP failed to access: http://127.0.0.1:5000/
+```
+or ZAP exits before writing `zap-results.json`.
+
+**Cause:** ZAP runs inside a Docker container. `127.0.0.1` there is the container itself, not your host where `docker compose` published the app.
+
+**What Kekkai does:** For Docker-backed ZAP, Kekkai rewrites `127.0.0.1`, `localhost`, and `::1` targets to `host.docker.internal` (preserving the port) and adds `--add-host=host.docker.internal:host-gateway` so Linux Docker can resolve it.
+
+**If it still fails:** Ensure the app is reachable from the host (`curl http://127.0.0.1:5000/`), then retry. You can also pass `--target-url http://host.docker.internal:5000/` explicitly with `--allow-private-ips` if your policy allows it.
 
 ### All Scanners Timeout
 
