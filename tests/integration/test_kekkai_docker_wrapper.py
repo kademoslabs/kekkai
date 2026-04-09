@@ -90,9 +90,9 @@ def test_docker_wrapper_runs(tmp_path: Path) -> None:
 
     assert result.returncode == 0, f"--help failed: {result.stderr}"
     combined_output = (result.stdout + result.stderr).lower()
-    assert (
-        "kekkai" in combined_output
-    ), f"Help output missing 'kekkai': stdout={result.stdout!r}, stderr={result.stderr!r}"
+    assert "kekkai" in combined_output, (
+        f"Help output missing 'kekkai': stdout={result.stdout!r}, stderr={result.stderr!r}"
+    )
 
 
 @pytest.mark.integration
@@ -117,9 +117,9 @@ def test_docker_wrapper_help(tmp_path: Path) -> None:
 
     assert result.returncode == 0, f"--help failed: {result.stderr}"
     combined_output = (result.stdout + result.stderr).lower()
-    assert (
-        "kekkai" in combined_output
-    ), f"Help output missing 'kekkai': stdout={result.stdout!r}, stderr={result.stderr!r}"
+    assert "kekkai" in combined_output, (
+        f"Help output missing 'kekkai': stdout={result.stdout!r}, stderr={result.stderr!r}"
+    )
 
 
 @pytest.mark.integration

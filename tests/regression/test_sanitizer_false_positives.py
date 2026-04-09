@@ -337,9 +337,9 @@ class TestKnownInjectionPatternsStillDetected:
             found = sanitizer.detect(pattern)
             assert len(found) > 0, f"Pattern not detected: {pattern}"
             risks = [risk for _, risk, _ in found]
-            assert (
-                InjectionRisk.CRITICAL in risks or InjectionRisk.HIGH in risks
-            ), f"Pattern not critical/high: {pattern}"
+            assert InjectionRisk.CRITICAL in risks or InjectionRisk.HIGH in risks, (
+                f"Pattern not critical/high: {pattern}"
+            )
 
     def test_high_risk_patterns_detected(self) -> None:
         """Test high risk patterns are detected."""

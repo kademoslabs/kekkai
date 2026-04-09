@@ -93,9 +93,9 @@ class TestBackwardsCompatibility:
 
         # Verify release workflow is removed (GitHub Actions handles releases)
         # The config should have a comment explaining the removal
-        assert (
-            "# Release workflow: REMOVED" in content or "release:" not in content
-        ), "Release workflow should be removed (GitHub Actions handles tag-based releases)"
+        assert "# Release workflow: REMOVED" in content or "release:" not in content, (
+            "Release workflow should be removed (GitHub Actions handles tag-based releases)"
+        )
 
 
 @pytest.mark.regression

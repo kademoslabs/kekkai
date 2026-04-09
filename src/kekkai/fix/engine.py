@@ -13,10 +13,10 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
-import re
 
 from ..scanners.base import Finding, Severity
 from ..threatflow.model_adapter import (
@@ -262,7 +262,7 @@ class FixEngine:
         for mount in container_mounts:
             if clean_path.startswith(mount):
                 # Slice off the mount prefix to make it a relative path
-                clean_path = clean_path[len(mount):]
+                clean_path = clean_path[len(mount) :]
                 break
 
         # Resolve full path

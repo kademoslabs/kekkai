@@ -3,6 +3,7 @@ name = "kekkai-cli"
 version = "2.3.0"
 description = "Terminal UI for Trivy/Semgrep/Gitleaks. Local-first security triage."
 readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.12"
 dependencies = [
     "rich>=13.0.0",

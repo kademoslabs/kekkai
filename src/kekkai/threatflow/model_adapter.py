@@ -260,7 +260,7 @@ class RemoteModelAdapter(ModelAdapter):
             elif self._provider == "anthropic":
                 return self._generate_anthropic(system_prompt, user_prompt, config, start_time)
             elif self._provider == "gemini":
-                return self._generate_gemini(system_prompt, user_prompt, config, start_time)    
+                return self._generate_gemini(system_prompt, user_prompt, config, start_time)
             else:
                 return ModelResponse(
                     content=f"[UNSUPPORTED PROVIDER: {self._provider}]",
@@ -396,7 +396,7 @@ class RemoteModelAdapter(ModelAdapter):
                 model_name=self._model_name,
                 latency_ms=int((time.time() - start_time) * 1000),
             )
-    
+
     def _generate_gemini(
         self,
         system_prompt: str,
@@ -411,30 +411,26 @@ class RemoteModelAdapter(ModelAdapter):
         model = config.model_name or self._model_name or "gemini-3.1-flash-lite-preview"
         # Strip any accidental whitespace or newlines from the terminal export
         api_key = (self._api_key or "").strip()
-        
-        url = self._api_base or f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+
+        url = (
+            self._api_base
+            or f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+        )
 
         headers = {
             "Content-Type": "application/json",
         }
 
         data = {
-            "systemInstruction": {
-                "parts": [{"text": system_prompt}]
-            },
-            "contents": [
-                {
-                    "role": "user",
-                    "parts": [{"text": user_prompt}]
-                }
-            ],
+            "systemInstruction": {"parts": [{"text": system_prompt}]},
+            "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
             "generationConfig": {
                 "temperature": config.temperature,
                 "maxOutputTokens": config.max_tokens,
-            }
+            },
         }
 
-        req = urllib.request.Request(
+        req = urllib.request.Request(  # noqa: S310
             url,
             data=json.dumps(data).encode("utf-8"),
             headers=headers,
@@ -442,7 +438,7 @@ class RemoteModelAdapter(ModelAdapter):
         )
 
         try:
-            with urllib.request.urlopen(req, timeout=config.timeout_seconds) as resp:
+            with urllib.request.urlopen(req, timeout=config.timeout_seconds) as resp:  # noqa: S310
                 response_data = json.loads(resp.read().decode("utf-8"))
 
             content = response_data["candidates"][0]["content"]["parts"][0]["text"]
@@ -481,6 +477,7 @@ class RemoteModelAdapter(ModelAdapter):
         if api_key:
             return message.replace(api_key, "[REDACTED_API_KEY]")
         return message
+
 
 class OllamaModelAdapter(ModelAdapter):
     """Adapter for Ollama local LLM server.
@@ -721,6 +718,6 @@ def create_adapter(
             api_base=config.api_base,
             model_name=config.model_name or "gemini-1.5-flash",
             provider="gemini",
-        )    
+        )
     else:
         raise ValueError(f"Unknown adapter mode: {mode}")

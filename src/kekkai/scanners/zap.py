@@ -20,9 +20,7 @@ from .url_policy import UrlPolicy, UrlPolicyError, validate_target_url
 ZAP_IMAGE = "ghcr.io/zaproxy/zaproxy"
 ZAP_DIGEST: str | None = None
 ZAP_SAFE_TAG = "stable"
-ZAP_FALLBACK_IMAGES = (
-    "docker.io/zaproxy/zap-stable:latest",
-)
+ZAP_FALLBACK_IMAGES = ("docker.io/zaproxy/zap-stable:latest",)
 SCAN_TYPE = "ZAP Scan"
 
 # Linux Docker does not define host.docker.internal unless we add it (Docker 20.10+).

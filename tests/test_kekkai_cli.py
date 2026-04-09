@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
-import json
 
 import pytest
 
@@ -58,7 +58,8 @@ def test_scan_invalid_run_id(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
 
 
 def test_doctor_json(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    monkeypatch.setattr(cli, "docker_available", lambda force_check=False: (True, "Docker available"))
+    docker_ok = lambda force_check=False: (True, "Docker available")  # noqa: E731
+    monkeypatch.setattr(cli, "docker_available", docker_ok)
 
     class _Info:
         path = "/usr/bin/tool"
@@ -74,7 +75,8 @@ def test_doctor_json(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixt
 def test_doctor_strict_fails_when_core_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(cli, "docker_available", lambda force_check=False: (False, "Docker missing"))
+    docker_fail = lambda force_check=False: (False, "Docker missing")  # noqa: E731
+    monkeypatch.setattr(cli, "docker_available", docker_fail)
     monkeypatch.setattr(
         cli,
         "detect_tool",
@@ -130,7 +132,9 @@ def test_write_run_provenance_includes_sha256(tmp_path: Path) -> None:
     assert len(data["attestation_subjects"][0]["sha256"]) == 64
 
 
-def test_resolve_provider_api_key_prefers_provider_specific(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_resolve_provider_api_key_prefers_provider_specific(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("KEKKAI_OPENAI_API_KEY", "provider-key")
     monkeypatch.setenv("KEKKAI_THREATFLOW_API_KEY", "generic-key")
     resolved = cli._resolve_provider_api_key(
@@ -141,7 +145,9 @@ def test_resolve_provider_api_key_prefers_provider_specific(monkeypatch: pytest.
     assert resolved == "provider-key"
 
 
-def test_threatflow_mode_resolves_from_dotenv_overlay(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_threatflow_mode_resolves_from_dotenv_overlay(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """KEKKAI_THREATFLOW_MODE in repo .env must apply without exporting to the shell."""
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -150,8 +156,6 @@ def test_threatflow_mode_resolves_from_dotenv_overlay(tmp_path: Path, monkeypatc
     overlay = cli._load_kekkai_env_overlay(repo)
     assert overlay.get("KEKKAI_THREATFLOW_MODE") == "gemini"
     model_mode_raw = (
-        None
-        or os.environ.get("KEKKAI_THREATFLOW_MODE")
-        or overlay.get("KEKKAI_THREATFLOW_MODE")
+        None or os.environ.get("KEKKAI_THREATFLOW_MODE") or overlay.get("KEKKAI_THREATFLOW_MODE")
     )
     assert model_mode_raw == "gemini"

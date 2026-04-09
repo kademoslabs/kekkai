@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/kademoslabs/kekkai/security/advisories/new
+    about: Report a security vulnerability via GitHub's private advisory flow. Do not open a public issue for security reports.
+  - name: Documentation
+    url: https://kademos.org/kekkai/docs
+    about: Check the documentation before opening an issue.

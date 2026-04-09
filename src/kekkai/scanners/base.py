@@ -117,11 +117,7 @@ def _dedupe_key(finding: Finding) -> str:
     from different rule families (e.g. flask/django/sqlalchemy variants). For
     those, dedupe by location + severity + message to reduce duplicate-style noise.
     """
-    if (
-        finding.scanner == "semgrep"
-        and finding.file_path
-        and finding.line is not None
-    ):
+    if finding.scanner == "semgrep" and finding.file_path and finding.line is not None:
         message = " ".join(finding.description.split())
         rule_tail = ""
         if finding.rule_id:

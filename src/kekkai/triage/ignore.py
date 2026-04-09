@@ -349,8 +349,5 @@ class IgnoreFile:
                 created = chunk.split("=", 1)[1].strip()
             elif chunk:
                 text_chunks.append(chunk)
-        if text_chunks:
-            comment = " | ".join(text_chunks)
-        else:
-            comment = ""
+        comment = " | ".join(text_chunks) if text_chunks else ""
         return comment, owner, expires, created

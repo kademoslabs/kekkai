@@ -449,8 +449,8 @@ def _try_open_url_quietly(url: str) -> bool:
     """Open URL via OS helpers with stderr suppressed (avoids noisy gio errors on WSL/headless)."""
     if sys.platform == "darwin":
         try:
-            proc = subprocess.run(  # noqa: S603  # nosec B603
-                ["open", url],
+            proc = subprocess.run(  # noqa: S603
+                ["open", url],  # noqa: S607  # nosec B603
                 check=False,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,

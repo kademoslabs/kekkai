@@ -18,9 +18,7 @@ from .container import ContainerConfig, run_container
 GITLEAKS_IMAGE = "zricethezav/gitleaks"
 GITLEAKS_DIGEST: str | None = None  # Allow Docker to pull architecture-appropriate image
 GITLEAKS_SAFE_TAG = "latest"
-GITLEAKS_FALLBACK_IMAGES = (
-    "docker.io/zricethezav/gitleaks",
-)
+GITLEAKS_FALLBACK_IMAGES = ("docker.io/zricethezav/gitleaks",)
 SCAN_TYPE = "Gitleaks Scan"
 
 

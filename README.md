@@ -8,7 +8,8 @@
   <img src="https://img.shields.io/github/actions/workflow/status/kademoslabs/kekkai/docker-publish.yml?logo=github"/>
   <img src="https://img.shields.io/circleci/build/github/kademoslabs/kekkai?logo=circleci"/>
   <img alt="PyPI - Version" src="https://img.shields.io/pypi/v/kekkai-cli">
-
+  <img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue">
+  <img alt="GitHub Stars" src="https://img.shields.io/github/stars/kademoslabs/kekkai?style=flat">
 </p>
 
 ---
@@ -39,37 +40,66 @@ Kekkai does not replace scanners or introduce proprietary detection logic. It si
 
 ---
 
+## Feature Summary
+
+| Feature | Description |
+|---------|-------------|
+| **Unified scanning** | One command runs Trivy, Semgrep, and Gitleaks via Docker |
+| **Single report format** | All findings normalized into `kekkai-report.json` |
+| **Interactive triage TUI** | Keyboard-driven UI to review, confirm, or dismiss findings |
+| **False positive management** | Mark findings and persist decisions with `.kekkaiignore` |
+| **CI mode** | `--ci --fail-on critical,high` with structured exit codes |
+| **GitHub PR comments** | Post findings inline on pull requests |
+| **DAST with OWASP ZAP** | Point at a running service for a baseline web scan (opt-in) |
+| **ThreatFlow** | Local-first AI threat modeling via Ollama (opt-in) |
+| **DefectDojo integration** | Spin up a local vuln management dashboard (opt-in) |
+| **Compliance reporting** | HTML/PDF reports with PCI-DSS, OWASP, HIPAA, SOC 2 mappings |
+| **AI fix engine** | Generate code patches for findings (experimental, opt-in) |
+| **Container hardening** | Read-only FS, no network egress, 2 GB memory limit per scanner |
+
+---
+
 ## Quick Start
 
 > Requires Docker and Python 3.12
 
-### 1. Install
+### Install
 
 ```bash
 pipx install kekkai-cli
 ```
 
-### 2. Scan
+### Common starting points
+
+**Scan and triage a repository:**
 
 ```bash
+# 1. Verify prerequisites
+kekkai doctor
+
+# 2. Scan current directory (Trivy + Semgrep + Gitleaks)
 kekkai scan
-# Runs Trivy (CVEs), Semgrep (code), Gitleaks (secrets)
-# Outputs unified kekkai-report.json
+
+# 3. Review findings interactively
+kekkai triage
 ```
 
-### 3. Triage
+**Wire into CI and get PR comments:**
 
 ```bash
-kekkai triage
-# Interactive TUI to review findings with keyboard navigation
+# Generate a GitHub Actions workflow
+kekkai init --ci
+
+# Or add the step manually:
+# kekkai scan --ci --fail-on critical,high --pr-comment
 ```
 
-### ⚡️ Auto-Install (Pre-commit)
+### Auto-Install (Pre-commit)
 
 Add this to your `.pre-commit-config.yaml` to scan on every commit:
 
 ```yaml
-  - repo: [https://github.com/kademoslabs/kekkai](https://github.com/kademoslabs/kekkai)
+  - repo: https://github.com/kademoslabs/kekkai
     rev: v2.0.1
     hooks:
       - id: kekkai-scan
@@ -107,6 +137,7 @@ kekkai triage
 - `f`: Mark as false positive
 - `c`: Confirm finding
 - `d`: Defer/ignore
+- `Ctrl+O`: Open in editor at vulnerable line
 - `Ctrl+S`: Save decisions
 - `q`: Quit
 
@@ -116,7 +147,7 @@ kekkai triage
 
 ---
 
-### 🚦 CI/CD in 1 Second
+### CI/CD in 1 Second
 
 Don't write YAML. Run this in your repo:
 ```bash
@@ -298,7 +329,7 @@ For vulnerability reports, see [SECURITY.md](SECURITY.md).
 ## Roadmap (short-term)
 
 1. Persistent triage state across runs (baselines)
-2. “New findings only” diffs
+2. "New findings only" diffs
 3. Better PR-level workflows
 4. Cleaner reporting for small teams
 

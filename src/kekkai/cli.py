@@ -45,8 +45,8 @@ from .scanners import (
     ToolVersionError,
     create_falco_scanner,
     create_zap_scanner,
-    detect_tool,
     dedupe_findings,
+    detect_tool,
     docker_available,
 )
 from .triage.ignore import IgnoreFile
@@ -617,8 +617,10 @@ def _command_scan(
         if cfg.falco and cfg.falco.enabled:
             falco_enabled = True
 
-        ignore_file = IgnoreFile(Path(suppressions_path)) if suppressions_path else IgnoreFile(
-            repo_path / ".kekkaiignore"
+        ignore_file = (
+            IgnoreFile(Path(suppressions_path))
+            if suppressions_path
+            else IgnoreFile(repo_path / ".kekkaiignore")
         )
         ignore_file.load()
         if ignore_file.expired_entries_pruned > 0 and ignore_file.path.exists():
@@ -835,7 +837,9 @@ def _load_baseline_ids(baseline_path: Path) -> set[str]:
     return {str(f.get("id", "")) for f in findings if isinstance(f, dict)}
 
 
-def _filter_findings_new_since_baseline(findings: list[Finding], baseline_path: Path) -> list[Finding]:
+def _filter_findings_new_since_baseline(
+    findings: list[Finding], baseline_path: Path
+) -> list[Finding]:
     """Return only findings whose IDs are absent from baseline report."""
     baseline_ids = _load_baseline_ids(baseline_path)
     if not baseline_ids:
@@ -1291,21 +1295,15 @@ def _command_threatflow(parsed: argparse.Namespace) -> int:
     model_path = getattr(parsed, "model_path", None) or os.environ.get(
         "KEKKAI_THREATFLOW_MODEL_PATH"
     )
-    api_key = (
-        getattr(parsed, "api_key", None)
-        or _resolve_provider_api_key(
-            provider=provider,
-            generic_env_key="KEKKAI_THREATFLOW_API_KEY",
-            env_overlay=env_overlay,
-        )
+    api_key = getattr(parsed, "api_key", None) or _resolve_provider_api_key(
+        provider=provider,
+        generic_env_key="KEKKAI_THREATFLOW_API_KEY",
+        env_overlay=env_overlay,
     )
-    model_name = (
-        getattr(parsed, "model_name", None)
-        or _resolve_provider_model_name(
-            provider=provider,
-            generic_env_key="KEKKAI_THREATFLOW_MODEL_NAME",
-            env_overlay=env_overlay,
-        )
+    model_name = getattr(parsed, "model_name", None) or _resolve_provider_model_name(
+        provider=provider,
+        generic_env_key="KEKKAI_THREATFLOW_MODEL_NAME",
+        env_overlay=env_overlay,
     )
 
     config = ThreatFlowConfig(
@@ -1527,21 +1525,15 @@ def _command_fix(parsed: argparse.Namespace) -> int:
     model_mode = getattr(parsed, "model_mode", "local") or "local"
     env_overlay = _load_kekkai_env_overlay(repo_path)
     provider = str(model_mode).lower()
-    api_key = (
-        getattr(parsed, "api_key", None)
-        or _resolve_provider_api_key(
-            provider=provider,
-            generic_env_key="KEKKAI_FIX_API_KEY",
-            env_overlay=env_overlay,
-        )
+    api_key = getattr(parsed, "api_key", None) or _resolve_provider_api_key(
+        provider=provider,
+        generic_env_key="KEKKAI_FIX_API_KEY",
+        env_overlay=env_overlay,
     )
-    model_name = (
-        getattr(parsed, "model_name", None)
-        or _resolve_provider_model_name(
-            provider=provider,
-            generic_env_key="KEKKAI_FIX_MODEL_NAME",
-            env_overlay=env_overlay,
-        )
+    model_name = getattr(parsed, "model_name", None) or _resolve_provider_model_name(
+        provider=provider,
+        generic_env_key="KEKKAI_FIX_MODEL_NAME",
+        env_overlay=env_overlay,
     )
     max_fixes = getattr(parsed, "max_fixes", 10)
     timeout = getattr(parsed, "timeout", 120)
@@ -1753,7 +1745,9 @@ def _command_upload(parsed: argparse.Namespace) -> int:
     if not dojo_api_key:
         console.print("[danger]Error:[/danger] DefectDojo API key required")
         console.print("  Set --dojo-api-key or KEKKAI_DOJO_API_KEY environment variable")
-        console.print("  Or run 'kekkai dojo up --wait' to start local DefectDojo and create an API key")
+        console.print(
+            "  Or run 'kekkai dojo up --wait' to start local DefectDojo and create an API key"
+        )
         return 1
 
     product_name = getattr(parsed, "product", "Kekkai Scans")
@@ -2249,9 +2243,12 @@ def _resolve_provider_model_name(
     }
     provider_key = provider_map.get(provider)
     if provider_key:
-        return os.environ.get(provider_key) or env_overlay.get(provider_key) or os.environ.get(
-            generic_env_key
-        ) or env_overlay.get(generic_env_key)
+        return (
+            os.environ.get(provider_key)
+            or env_overlay.get(provider_key)
+            or os.environ.get(generic_env_key)
+            or env_overlay.get(generic_env_key)
+        )
     return os.environ.get(generic_env_key) or env_overlay.get(generic_env_key)
 
 
